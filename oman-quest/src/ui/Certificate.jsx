@@ -106,6 +106,8 @@ export function Certificate() {
       // signature line
       g.strokeStyle = '#555'; g.lineWidth = 2; g.beginPath(); g.moveTo(W / 2 - 200, 1080); g.lineTo(W / 2 + 200, 1080); g.stroke();
       g.font = `500 24px ${EN_FONT}`; g.fillText('English Teacher  •  معلمة اللغة الإنجليزية', W / 2, 1115);
+      g.fillStyle = '#4b1f9e'; g.font = `italic 700 34px ${EN_FONT}`; g.fillText('Ms. Jawaher Alkhusaibi', W / 2, 1068);
+      g.fillStyle = '#8a6a2a'; g.font = `600 20px ${EN_FONT}`; g.fillText('Created by Ms. Jawaher Alkhusaibi', W / 2, 1150);
       // art: Burj on the right, hero on the left, flags in corners
       drawBurj(g, W - 240, H - 110, 22);
       const ih = 470; const iw = (img.width / img.height) * ih;

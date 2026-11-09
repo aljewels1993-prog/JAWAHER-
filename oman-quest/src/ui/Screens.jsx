@@ -41,6 +41,7 @@ export function Welcome() {
           {profiles[0] && <Btn kind="secondary" onClick={() => openProfile(profiles[0].id)}>{T.continue}: {profiles[0].name}</Btn>}
         </div>
         <p className="save-mode">💾 {T.playerMode[backend?.mode || 'local']}</p>
+        <p className="signature" dir="ltr">✨ Created by Ms. Jawaher Alkhusaibi ✨</p>
       </div>
     </div>
   );

@@ -55,6 +55,8 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 .game-title-ar { margin: 6px 0; font-family: 'Cairo', sans-serif; font-weight: 900; color: var(--turq-2); font-size: clamp(1.3rem, 4.2vw, 2rem); }
 .tagline { margin: 6px 0 14px; opacity: 0.95; }
 .welcome-actions { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.signature { margin: 8px 0 0; font-weight: 800; font-size: 0.95rem; color: var(--gold); letter-spacing: 0.3px; }
+.signature.dark { color: var(--purple); }
 .save-mode { font-size: 0.8rem; opacity: 0.8; margin: 10px 0 0; }
 
 .panel { background: var(--beige); border: 3px solid var(--gold-2); border-radius: 24px; padding: 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }

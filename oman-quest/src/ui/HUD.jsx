@@ -146,6 +146,7 @@ export function Results() {
           <div className="result-stats"><span>🪙 {tt.coins}</span><span>⭐ {tt.stars}</span><span>📘 {tt.correct}/50</span><span>🏁 {tt.stagesCompleted}/10</span></div>
           <Btn kind="gold" className="big" onClick={() => go('certificate')}>📜 {T.certificate}</Btn>
           <Btn kind="secondary" onClick={() => go('map')}>🗺️ {T.backToMap}</Btn>
+          <p className="signature dark" dir="ltr">Created by Ms. Jawaher Alkhusaibi</p>
         </div>
       </div>
     );

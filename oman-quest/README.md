@@ -1,6 +1,8 @@
 # OMAN ENGLISH QUEST 3D – The Treasures of Oman 🇴🇲
 ### رحلة التحدي ثلاثية الأبعاد – كنوز عُمان
 
+**Created by Ms. Jawaher Alkhusaibi.**
+
 A 3D platform adventure for English learners. The student's own Omani heroine
 runs and jumps across 10 stages inspired by Oman's governorates, hits grammar
 blocks to answer 50 English questions, and finally climbs **Burj Al Sahwa
