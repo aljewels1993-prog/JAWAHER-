@@ -227,7 +227,7 @@ export function FinalScreen() {
         <p className="tiny">Grade 6 English · Unit 3: Places · {date}</p>
         <div className="row">
           <button type="button" className="btn ghost" onClick={() => go('hub')}>🗺️ City Map</button>
-          <button type="button" className="btn pink" onClick={() => window.print()}>🖨️ Print</button>
+          {window.self === window.top && <button type="button" className="btn pink" onClick={() => window.print()}>🖨️ Print</button>}
           <button type="button" className="btn gold" onClick={() => useGame.getState().restart()}>🔄 Play again</button>
         </div>
       </div>
