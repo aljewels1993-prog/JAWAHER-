@@ -175,7 +175,7 @@ export function Bear({ mood = 'idle', motion, ...props }) {
           ))}
           <group ref={brow} position={[0, 0.42, 0.58]}>
             {[-0.22, 0.22].map((x) => (
-              <mesh key={x} position={[x, 0, 0]} rotation={[0, 0, x > 0 ? PI / 2 + 0.3 : PI / 2 - 0.3]}><capsuleGeometry args={[0.04, 0.22, 4, 8]} /><Mat c="#4a250b" /></mesh>
+              <mesh key={x} position={[x, 0, 0]} rotation={[0, 0, x > 0 ? PI / 2 - 0.25 : PI / 2 + 0.25]}><capsuleGeometry args={[0.04, 0.22, 4, 8]} /><Mat c="#4a250b" /></mesh>
             ))}
           </group>
           {[-0.58, 0.58].map((x) => (

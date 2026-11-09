@@ -28,11 +28,11 @@ function StageCamera({ pos = [0, 6, 17], look = [0, 2.6, 0] }) {
   const { camera, size } = useThree();
   useFrame(() => {
     const aspect = size.width / size.height;
-    const k = aspect < 1 ? Math.min(1.9, 1.15 / aspect) : 1;
+    const k = aspect < 1 ? Math.min(1.9, 1.15 / aspect) : 1.3;
     const target = new THREE.Vector3(pos[0], pos[1] + (k - 1) * 2.5, pos[2] * k);
     camera.position.lerp(target, 0.08);
-    // On portrait screens the UI covers the bottom, so aim lower to lift the scene up.
-    camera.lookAt(look[0], look[1] - (aspect < 1 ? 3.2 * (k - 0.6) : 0.4), look[2]);
+    // The question panel covers the bottom of the screen, so aim lower to lift the scene up.
+    camera.lookAt(look[0], look[1] - (aspect < 1 ? 3.2 * (k - 0.6) : 3.2), look[2]);
   });
   return null;
 }
@@ -395,8 +395,8 @@ export function TreasureScene() {
       {slots.map((x, i) => <Key key={i} index={i} position={[x, 6.6 - Math.abs(x) * 0.25, -1]} got={i < keys} />)}
       <Girl position={[-5, 0.25, 2.6]} rotation={[0, 0.5, 0]} cheer={open} />
       <Bear position={[5.2, 0.25, 2]} rotation={[0, -0.5, 0]} scale={0.95} mood={open ? 'happy' : mood} />
-      <Tree position={[-7.6, 0.25, -4]} s={1.2} c="#ec407a" />
-      <Tree position={[7.8, 0.25, -3.5]} s={1.1} c="#ab47bc" />
+      <Tree position={[-8.2, 0.25, -5.5]} s={1.2} />
+      <Tree position={[8.4, 0.25, -5]} s={1.1} c="#66bb6a" />
       <Clouds count={7} spread={70} height={16} />
       <Sparkles position={[0, 0.5, 0]} radius={6} count={60} color="#ffd23f" />
       <Confetti trigger={celebrate} origin={[0, 8, 0]} count={320} spread={14} />

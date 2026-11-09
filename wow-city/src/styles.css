@@ -234,7 +234,7 @@ button:disabled { cursor: default; }
 
 /* final */
 .final { position: absolute; left: 50%; bottom: calc(var(--safe-b) + 10px); transform: translateX(-50%); width: min(600px, calc(100% - 20px)); }
-.final.slide-up { animation-name: slideUpCentered; }
+.final.slide-up, .hub.slide-up { animation-name: slideUpCentered; }
 .certificate { background: linear-gradient(160deg, #fffdf2, #fff3c4); border: 6px double var(--gold-d); border-radius: 28px; padding: 14px 18px; text-align: center; box-shadow: 0 16px 50px rgba(74,15,107,.4); }
 .certificate h2 { margin: 2px 0; color: var(--purple); font-size: clamp(24px, 4.5vw, 36px); }
 .certificate p { margin: 4px 0; font-size: 17px; }
@@ -268,16 +268,20 @@ button:disabled { cursor: default; }
   .pic-emoji { font-size: 54px; }
   .options { gap: 8px; }
   .choice { padding: 10px 6px; min-height: 48px; }
-  .hud-right { flex-direction: column; }
+  .hud-right { gap: 4px; }
+  .icon-btn { width: 34px; height: 34px; font-size: 15px; border-width: 2px; }
+  .hud-left { max-width: calc(100% - 150px); }
+  .bubble-wrap { top: calc(var(--safe-t) + 122px); }
+  .city-task { top: calc(var(--safe-t) + 222px); }
 }
 /* phones held sideways: panel on the right, 3D scene on the left */
 @media (orientation: landscape) and (max-height: 560px) {
   .panel, .hub, .final { left: auto; right: calc(var(--safe-r) + 8px); transform: none; width: min(54%, 560px); top: 60px; bottom: calc(var(--safe-b) + 8px); max-height: none; }
-  .panel.slide-up, .final.slide-up { animation-name: slideUp; }
+  .panel.slide-up, .final.slide-up, .hub.slide-up { animation-name: slideUp; }
   .missions { grid-template-columns: 1fr 1fr; }
-  .bubble-wrap { top: auto; bottom: calc(var(--safe-b) + 10px); right: auto; width: 44%; justify-content: flex-start; }
+  .bubble-wrap { top: 60px; right: auto; width: 44%; justify-content: flex-start; }
   .bubble { font-size: 15px; }
-  .city-task { top: 60px; }
+  .city-task { top: auto; bottom: calc(var(--safe-b) + 10px); max-width: 46%; }
   .q-row .pic.lg { width: 90px; height: 90px; }
   .logo h1 { font-size: 48px; }
   .start { flex-direction: row; gap: 24px; }
