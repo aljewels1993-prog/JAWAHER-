@@ -1,5 +1,5 @@
 import { unzipSync, zipSync, strToU8, strFromU8 } from 'fflate';
-import { LINES, RECORDABLE } from './lines.js';
+import { LINES, RECORDABLE, setClipFilter } from './lines.js';
 
 /**
  * Real recorded voice for the hero (e.g. a child reading her lines).
@@ -58,6 +58,7 @@ export function loadVoices() {
         if (blob) urls.set(key, URL.createObjectURL(blob));
       }
     } catch { /* storage blocked */ }
+    setClipFilter((clip) => urls.has(`en/${clip}`) || urls.has(`ar/${clip}`));
   })();
   return ready;
 }

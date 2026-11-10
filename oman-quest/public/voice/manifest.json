@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "clips": {
+    "en/correct-1": "en/correct-1.mp3",
+    "en/correct-2": "en/correct-2.mp3",
+    "en/correct-3": "en/correct-3.mp3",
+    "en/correct-4": "en/correct-4.mp3",
+    "en/correct-5": "en/correct-5.mp3",
+    "en/correct-6": "en/correct-6.mp3",
+    "en/correct-7": "en/correct-7.mp3",
+    "en/correct-8": "en/correct-8.mp3",
+    "en/correct-9": "en/correct-9.mp3",
+    "en/correct-10": "en/correct-10.mp3",
+    "en/correct-11": "en/correct-11.mp3",
+    "en/correct-12": "en/correct-12.mp3",
+    "en/correct-13": "en/correct-13.mp3",
+    "en/correct-14": "en/correct-14.mp3",
+    "en/wrong-1": "en/wrong-1.mp3",
+    "en/wrong-2": "en/wrong-2.mp3",
+    "en/wrong-3": "en/wrong-3.mp3",
+    "en/wrong-4": "en/wrong-4.mp3",
+    "en/wrong-5": "en/wrong-5.mp3",
+    "en/wrong-6": "en/wrong-6.mp3",
+    "en/wrong-7": "en/wrong-7.mp3",
+    "en/wrong-8": "en/wrong-8.mp3",
+    "en/wrong-9": "en/wrong-9.mp3",
+    "en/wrong-10": "en/wrong-10.mp3",
+    "en/reveal-1": "en/reveal-1.mp3"
+  }
+}

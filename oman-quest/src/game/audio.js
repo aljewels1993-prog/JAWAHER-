@@ -210,11 +210,14 @@ let clipPlayer = null;
 /** Play a real recording of this line if one exists. Returns true if it played. */
 function playRecording(ln, lang) {
   if (typeof Audio === 'undefined') return false;
-  let url = ln.clip ? clipUrl(clipKey(lang, ln.clip)) : null;
+  // Her recording in the game's language; otherwise her recording in the other
+  // language (a real voice is better than the device voice).
+  const any = (clip) => clipUrl(clipKey(lang, clip)) || clipUrl(clipKey(lang === 'ar' ? 'en' : 'ar', clip));
+  let url = ln.clip ? any(ln.clip) : null;
   if (!url && ln.kind === 'streak') {
     // streak lines contain a number: use any recorded happy line instead
     const n = LINES.correct.list.length;
-    for (let k = 0; k < n && !url; k++) url = clipUrl(clipKey(lang, `correct-${1 + Math.floor(Math.random() * n)}`));
+    for (let k = 0; k < n && !url; k++) url = any(`correct-${1 + Math.floor(Math.random() * n)}`);
   }
   if (!url) return false;
   try {
