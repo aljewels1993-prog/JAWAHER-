@@ -1,0 +1,21 @@
+{
+  "name": "Oman English Quest 3D – كنوز عُمان",
+  "short_name": "Oman Quest",
+  "description": "3D platform adventure across Oman with English grammar challenges. Created by Ms. Jawaher Alkhusaibi.",
+  "lang": "en",
+  "dir": "auto",
+  "start_url": "./",
+  "scope": "./",
+  "id": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#2b1a52",
+  "theme_color": "#4b1f9e",
+  "categories": ["education", "games", "kids"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

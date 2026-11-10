@@ -1,0 +1,250 @@
+/**
+ * The 50 grammar challenges — 5 per stage, 10 stages.
+ * Each question: id (unique, stable — used for rewards and teacher reports),
+ * stage (1-10), topic, prompt, options (4), answer (index of the one correct
+ * option), hint (the rule, shown after a first wrong try without giving the
+ * answer away) and explain (shown with the correct answer).
+ */
+const RAW = [
+  // ── Stage 1 · Dhofar — Present Simple & Present Continuous ──
+  { id: 'q01', stage: 1, topic: 'Present Simple', prompt: 'My brother ______ football every Friday.',
+    options: ['play', 'plays', 'playing', 'is play'], answer: 1,
+    hint: 'With he / she / it in the Present Simple, the verb changes.',
+    explain: '"My brother" = he. In the Present Simple we add -s to the verb with he/she/it: he plays.' },
+  { id: 'q02', stage: 1, topic: 'Present Continuous', prompt: 'Look! The children ______ in the garden now.',
+    options: ['play', 'plays', 'are playing', 'played'], answer: 2,
+    hint: '"Look!" and "now" tell us the action is happening at this moment.',
+    explain: 'For actions happening now we use am/is/are + verb-ing: The children are playing.' },
+  { id: 'q03', stage: 1, topic: 'Present Simple', prompt: 'Fatma ______ like spicy food.',
+    options: ["don't", "doesn't", "isn't", "aren't"], answer: 1,
+    hint: 'This is a negative sentence in the Present Simple with she.',
+    explain: 'Negative Present Simple with he/she/it uses does not (doesn\'t) + base verb: Fatma doesn\'t like…' },
+  { id: 'q04', stage: 1, topic: 'Present Continuous', prompt: 'Be quiet, please. The baby ______.',
+    options: ['sleeps', 'is sleeping', 'sleep', 'are sleeping'], answer: 1,
+    hint: 'The baby is one person, and the action is happening right now.',
+    explain: 'The baby = it, so we use is + verb-ing: The baby is sleeping (right now).' },
+  { id: 'q05', stage: 1, topic: 'Present Simple', prompt: '______ your father work in Salalah?',
+    options: ['Do', 'Does', 'Is', 'Are'], answer: 1,
+    hint: 'Questions in the Present Simple start with a helping verb that matches the subject.',
+    explain: 'Your father = he, so the question uses Does + base verb: Does your father work…?' },
+
+  // ── Stage 2 · Al Wusta — Past Simple ──
+  { id: 'q06', stage: 2, topic: 'Past Simple', prompt: 'Yesterday, Sara ______ to school.',
+    options: ['go', 'goes', 'went', 'going'], answer: 2, fixed: true,
+    hint: '"Yesterday" means the action is finished in the past. "Go" is irregular.',
+    explain: 'Yesterday → Past Simple. The past of the irregular verb go is went.' },
+  { id: 'q07', stage: 2, topic: 'Past Simple', prompt: 'We ______ a big turtle on the beach last night.',
+    options: ['see', 'saw', 'seen', 'seeing'], answer: 1,
+    hint: '"Last night" is finished time. Think of the past form of "see".',
+    explain: '"Last night" needs the Past Simple. The past of see is saw (seen is the past participle).' },
+  { id: 'q08', stage: 2, topic: 'Past Simple', prompt: 'Ahmed ______ his homework yesterday evening.',
+    options: ["didn't finish", "didn't finished", "doesn't finish", "not finished"], answer: 0,
+    hint: 'Negative Past Simple: did not + the base form of the verb.',
+    explain: 'In the negative Past Simple we use didn\'t + base verb: didn\'t finish (never didn\'t finished).' },
+  { id: 'q09', stage: 2, topic: 'Past Simple', prompt: '______ you visit Duqm last summer?',
+    options: ['Do', 'Did', 'Was', 'Were'], answer: 1,
+    hint: 'This question is about last summer, and the main verb is "visit".',
+    explain: 'Past Simple questions use Did + subject + base verb: Did you visit…?' },
+  { id: 'q10', stage: 2, topic: 'Past Simple', prompt: 'The football match ______ very exciting.',
+    options: ['were', 'was', 'be', 'is being'], answer: 1,
+    hint: 'The match already happened. Use the past of "be" for one thing.',
+    explain: 'The match = it (singular), and it is finished, so we use was.' },
+
+  // ── Stage 3 · Ash Sharqiyah South — Future (will / going to) ──
+  { id: 'q11', stage: 3, topic: 'Future: going to', prompt: 'Look at those dark clouds! It ______ rain.',
+    options: ['is going to', 'goes to', 'will to', 'going'], answer: 0,
+    hint: 'We can SEE evidence now that something will happen.',
+    explain: 'When we predict from evidence we can see, we use be going to: It is going to rain.' },
+  { id: 'q12', stage: 3, topic: 'Future: will', prompt: 'The phone is ringing. I ______ answer it!',
+    options: ['am going to', 'will', 'am', 'would'], answer: 1,
+    hint: 'This is a decision made at the moment of speaking.',
+    explain: 'For quick decisions made at the moment of speaking, we use will: I\'ll answer it!' },
+  { id: 'q13', stage: 3, topic: 'Future: going to', prompt: 'We have bought the tickets. We ______ visit Sur next week.',
+    options: ['will', 'are going to', 'going to', 'go to'], answer: 1,
+    hint: 'This is a plan that was decided before now.',
+    explain: 'For plans we have already made, we use be going to: We are going to visit Sur.' },
+  { id: 'q14', stage: 3, topic: 'Future: will', prompt: 'I think people ______ live on the Moon one day.',
+    options: ['will', 'are', 'going', 'did'], answer: 0,
+    hint: '"I think" + a prediction about the future.',
+    explain: 'With I think / I believe for predictions, we usually use will + base verb.' },
+  { id: 'q15', stage: 3, topic: 'Future: will', prompt: 'Don\'t worry. I ______ tell anyone your secret.',
+    options: ["won't", "don't", "am not", "didn't"], answer: 0,
+    hint: 'This is a promise about the future, in the negative.',
+    explain: 'Promises use will; the negative is will not = won\'t: I won\'t tell anyone.' },
+
+  // ── Stage 4 · Ash Sharqiyah North — Present Perfect ──
+  { id: 'q16', stage: 4, topic: 'Present Perfect', prompt: 'I ______ never been to the Wahiba Sands.',
+    options: ['have', 'has', 'had', 'am'], answer: 0,
+    hint: 'Present Perfect = have/has + past participle. Which one goes with "I"?',
+    explain: 'Present Perfect uses have with I/you/we/they: I have never been…' },
+  { id: 'q17', stage: 4, topic: 'Present Perfect', prompt: 'Maryam has ______ her lunch already.',
+    options: ['eat', 'ate', 'eaten', 'eating'], answer: 2,
+    hint: 'After has / have we need the past participle.',
+    explain: 'has + past participle: eat → ate → eaten. Maryam has eaten her lunch.' },
+  { id: 'q18', stage: 4, topic: 'Present Perfect', prompt: '______ you ever ridden a camel?',
+    options: ['Did', 'Have', 'Has', 'Are'], answer: 1,
+    hint: '"ever" + past participle "ridden" → Present Perfect question.',
+    explain: 'Present Perfect questions: Have + you + past participle: Have you ever ridden…?' },
+  { id: 'q19', stage: 4, topic: 'Present Perfect', prompt: 'They have lived in Ibra ______ 2015.',
+    options: ['for', 'since', 'from', 'in'], answer: 1,
+    hint: 'Is "2015" a length of time or a starting point?',
+    explain: 'since + a starting point (2015, Monday, 8 o\'clock); for + a length of time (three years).' },
+  { id: 'q20', stage: 4, topic: 'Present Perfect', prompt: 'The bus hasn\'t arrived ______.',
+    options: ['already', 'yet', 'ever', 'just'], answer: 1,
+    hint: 'Which word goes at the END of negative Present Perfect sentences?',
+    explain: 'yet is used at the end of negative sentences and questions: It hasn\'t arrived yet.' },
+
+  // ── Stage 5 · Ad Dakhiliyah — Comparatives & Superlatives ──
+  { id: 'q21', stage: 5, topic: 'Comparatives', prompt: 'Jebel Shams is ______ than Jebel Akhdar.',
+    options: ['high', 'higher', 'highest', 'more high'], answer: 1,
+    hint: 'We compare TWO mountains, and "high" is a short adjective.',
+    explain: 'Short adjectives make the comparative with -er + than: higher than.' },
+  { id: 'q22', stage: 5, topic: 'Superlatives', prompt: 'Nizwa Fort is one of the ______ forts in Oman.',
+    options: ['famous', 'more famous', 'most famous', 'famousest'], answer: 2,
+    hint: '"one of the…" compares one thing with a whole group. "Famous" is a long adjective.',
+    explain: 'Long adjectives make the superlative with the most: one of the most famous forts.' },
+  { id: 'q23', stage: 5, topic: 'Comparatives', prompt: 'This story is ______ than the last one.',
+    options: ['gooder', 'better', 'best', 'more good'], answer: 1,
+    hint: '"good" is irregular when we compare two things.',
+    explain: 'good → better → the best. "than" tells us we need the comparative: better.' },
+  { id: 'q24', stage: 5, topic: 'Superlatives', prompt: 'August is the ______ month of the year in Muscat.',
+    options: ['hot', 'hotter', 'hottest', 'most hot'], answer: 2,
+    hint: '"the … of the year" compares one with all the others. Watch the spelling!',
+    explain: 'Superlative of short adjectives: the + -est. hot doubles the t: the hottest.' },
+  { id: 'q25', stage: 5, topic: 'Comparatives', prompt: 'My bag is not as ______ as yours.',
+    options: ['heavy', 'heavier', 'heaviest', 'more heavy'], answer: 0,
+    hint: 'In the pattern "as … as" the adjective does not change.',
+    explain: 'as + adjective (base form) + as: not as heavy as yours.' },
+
+  // ── Stage 6 · Ad Dhahirah — Modal verbs (can / could / have to / should) ──
+  { id: 'q26', stage: 6, topic: 'Modals: can', prompt: 'Hamad ______ swim very well. He won a medal!',
+    options: ['can', 'cans', 'can to', 'is can'], answer: 0,
+    hint: 'Modal verbs never take -s and are never followed by "to".',
+    explain: 'can shows ability and never changes: He can swim (not cans, not can to).' },
+  { id: 'q27', stage: 6, topic: 'Modals: could', prompt: 'When I was five, I ______ read Arabic.',
+    options: ['can', 'could', 'should', 'must'], answer: 1,
+    hint: 'This is about ability in the PAST.',
+    explain: 'could is the past of can for ability: When I was five, I could read.' },
+  { id: 'q28', stage: 6, topic: 'Modals: should', prompt: 'You look tired. You ______ go to bed early.',
+    options: ['should', 'could to', 'have', 'shouldn\'t to'], answer: 0,
+    hint: 'This sentence gives advice.',
+    explain: 'We use should + base verb to give advice: You should go to bed early.' },
+  { id: 'q29', stage: 6, topic: 'Modals: have to', prompt: 'Students ______ wear a uniform at our school. It\'s a rule.',
+    options: ['has to', 'have to', 'having to', 'must to'], answer: 1,
+    hint: 'A rule = obligation. "Students" is plural.',
+    explain: 'have to shows obligation; with plural subjects we use have to (has to is for he/she/it).' },
+  { id: 'q30', stage: 6, topic: 'Modals: have to', prompt: 'Tomorrow is a holiday, so we ______ get up early.',
+    options: ["don't have to", "haven't to", "mustn't to", "doesn't have to"], answer: 0,
+    hint: 'It is NOT necessary to get up early. Who is "we"?',
+    explain: 'don\'t have to = it is not necessary. With we: We don\'t have to get up early.' },
+
+  // ── Stage 7 · Al Buraimi — Prepositions ──
+  { id: 'q31', stage: 7, topic: 'Prepositions of time', prompt: 'My birthday is ______ March.',
+    options: ['on', 'at', 'in', 'by'], answer: 2,
+    hint: 'Months, years and seasons use the same preposition.',
+    explain: 'in + months/years/seasons: in March, in 2026, in summer.' },
+  { id: 'q32', stage: 7, topic: 'Prepositions of time', prompt: 'The lesson starts ______ 8 o\'clock.',
+    options: ['in', 'on', 'at', 'for'], answer: 2,
+    hint: 'Clock times use a short preposition.',
+    explain: 'at + clock times: at 8 o\'clock, at noon, at night.' },
+  { id: 'q33', stage: 7, topic: 'Prepositions of time', prompt: 'We go to the souq ______ Thursday evenings.',
+    options: ['in', 'on', 'at', 'to'], answer: 1,
+    hint: 'Days of the week use this preposition.',
+    explain: 'on + days and dates: on Thursday, on Thursday evenings, on 18th November.' },
+  { id: 'q34', stage: 7, topic: 'Prepositions of place', prompt: 'The cat is hiding ______ the table.',
+    options: ['under', 'on', 'between', 'into'], answer: 0,
+    hint: 'Hiding means the cat is below something.',
+    explain: 'under = below something: The cat is under the table.' },
+  { id: 'q35', stage: 7, topic: 'Prepositions of place', prompt: 'The bank is ______ the bakery and the pharmacy.',
+    options: ['next', 'between', 'among', 'behind of'], answer: 1,
+    hint: 'There are exactly TWO places, one on each side.',
+    explain: 'between + two things (… and …): between the bakery and the pharmacy.' },
+
+  // ── Stage 8 · Musandam — Subject-verb agreement & Articles ──
+  { id: 'q36', stage: 8, topic: 'Subject-verb agreement', prompt: 'Everybody ______ the new English teacher.',
+    options: ['like', 'likes', 'are liking', 'have liked'], answer: 1,
+    hint: '"Everybody" looks like many people, but grammatically it is singular.',
+    explain: 'Everybody / everyone / nobody take a singular verb: Everybody likes…' },
+  { id: 'q37', stage: 8, topic: 'Subject-verb agreement', prompt: 'The dolphins in Khasab ______ beautiful.',
+    options: ['is', 'are', 'was', 'be'], answer: 1,
+    hint: 'Find the real subject: is it "dolphins" or "Khasab"?',
+    explain: 'The subject is "the dolphins" (plural), so the verb is are. "in Khasab" doesn\'t change it.' },
+  { id: 'q38', stage: 8, topic: 'Subject-verb agreement', prompt: 'One of my friends ______ in Muscat.',
+    options: ['live', 'lives', 'are living', 'have lived'], answer: 1,
+    hint: 'The subject is "One", not "friends".',
+    explain: 'One of … is singular, so the verb takes -s: One of my friends lives in Muscat.' },
+  { id: 'q39', stage: 8, topic: 'Articles', prompt: 'I saw ______ elephant at the zoo.',
+    options: ['a', 'an', 'the', '—'], answer: 1,
+    hint: 'Listen to the first SOUND of "elephant".',
+    explain: 'We use an before a vowel sound: an elephant, an orange, an hour.' },
+  { id: 'q40', stage: 8, topic: 'Articles', prompt: '______ sun rises in the east.',
+    options: ['A', 'An', 'The', '—'], answer: 2,
+    hint: 'There is only one of these in our sky.',
+    explain: 'We use the for unique things there is only one of: the sun, the moon, the sky.' },
+
+  // ── Stage 9 · Al Batinah — Adjectives & Adverbs ──
+  { id: 'q41', stage: 9, topic: 'Adverbs', prompt: 'Laila speaks English very ______.',
+    options: ['good', 'well', 'nice', 'better than'], answer: 1,
+    hint: 'We need a word that describes HOW she speaks (a verb).',
+    explain: 'Adverbs describe verbs. The adverb of good is well: She speaks well.' },
+  { id: 'q42', stage: 9, topic: 'Adverbs', prompt: 'Please drive ______. The road is wet.',
+    options: ['careful', 'carefully', 'care', 'more careful'], answer: 1,
+    hint: 'This word describes the verb "drive".',
+    explain: 'Most adverbs are adjective + -ly: careful → carefully. Drive carefully.' },
+  { id: 'q43', stage: 9, topic: 'Adjectives', prompt: 'This is a ______ film. I loved it!',
+    options: ['wonderfully', 'wonder', 'wonderful', 'wonderfuly'], answer: 2,
+    hint: 'This word describes the noun "film".',
+    explain: 'Adjectives describe nouns and come before them: a wonderful film.' },
+  { id: 'q44', stage: 9, topic: 'Adjectives', prompt: 'I was ______ because the lesson was so interesting.',
+    options: ['interested', 'interesting', 'interest', 'interestingly'], answer: 0,
+    hint: '-ed describes how a person FEELS; -ing describes the thing that causes it.',
+    explain: '-ed adjectives = feelings (I was interested); -ing adjectives = the cause (an interesting lesson).' },
+  { id: 'q45', stage: 9, topic: 'Adverbs', prompt: 'The falcon flew ______ across the sky.',
+    options: ['fastly', 'fast', 'faster than', 'fasting'], answer: 1,
+    hint: 'Some adverbs look exactly like their adjective.',
+    explain: 'fast is irregular: the adjective and adverb are the same. "Fastly" is not a word.' },
+
+  // ── Stage 10 · Muscat — Mixed review (Burj Al Sahwa) ──
+  { id: 'q46', stage: 10, topic: 'Past Continuous', prompt: 'I ______ TV when my mother called me.',
+    options: ['watched', 'was watching', 'am watching', 'watch'], answer: 1,
+    hint: 'One action was in progress when another short action interrupted it.',
+    explain: 'The long action in progress uses was/were + -ing: I was watching TV when she called.' },
+  { id: 'q47', stage: 10, topic: 'Present Perfect vs Past Simple', prompt: 'I ______ Burj Al Sahwa two years ago.',
+    options: ['have seen', 'saw', 'see', 'have saw'], answer: 1,
+    hint: '"two years ago" is a finished time in the past.',
+    explain: 'With finished times like ago / yesterday / last year we use the Past Simple: I saw it two years ago.' },
+  { id: 'q48', stage: 10, topic: 'Comparatives', prompt: 'Muscat is ______ city in Oman.',
+    options: ['the biggest', 'bigger', 'the bigger', 'most big'], answer: 0,
+    hint: 'Muscat is compared with ALL the cities in Oman.',
+    explain: 'Superlative: the + adjective-est. big doubles the g: the biggest city.' },
+  { id: 'q49', stage: 10, topic: 'Modals: should', prompt: 'You ______ touch the hot stove. It is dangerous!',
+    options: ["shouldn't", "should", "don't have", "could"], answer: 0,
+    hint: 'This is strong advice NOT to do something.',
+    explain: 'shouldn\'t + base verb = advice not to do something: You shouldn\'t touch it.' },
+  { id: 'q50', stage: 10, topic: 'Future: will', prompt: 'If you study hard, you ______ become an English champion!',
+    options: ['will', 'would', 'are', 'did'], answer: 0,
+    hint: 'First conditional: If + present, … + future.',
+    explain: 'First conditional: If + Present Simple, will + base verb: you will become a champion!' },
+];
+
+/**
+ * Move each correct option to a spread-out position (A/B/C/D used evenly) so
+ * students can't guess by position. Deterministic: the same every run.
+ */
+function place(q, i) {
+  if (q.fixed) return q;
+  const target = (i * 7 + 2) % 4;
+  const correct = q.options[q.answer];
+  const others = q.options.filter((_, k) => k !== q.answer);
+  const options = [...others.slice(0, target), correct, ...others.slice(target)];
+  return { ...q, options, answer: target };
+}
+
+export const QUESTIONS = RAW.map(place);
+
+/** All questions belonging to one stage, in order. */
+export function questionsForStage(stage) {
+  return QUESTIONS.filter((q) => q.stage === stage);
+}
+
+export const QUESTION_BY_ID = Object.fromEntries(QUESTIONS.map((q) => [q.id, q]));
