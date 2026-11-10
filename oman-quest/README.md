@@ -21,6 +21,12 @@ npm run build        # static site in dist/  (deploy anywhere)
 npm run build:single # one self-contained HTML file in dist-single/
 ```
 
+**Netlify:** connect the repository. `netlify.toml` already tells Netlify to build
+in `oman-quest/` (Node 22, `npm run build` with `BASE_PATH=/`) and publish
+`oman-quest/dist`, with an SPA fallback and fresh service-worker headers. Leave the
+Base directory, Build command and Publish directory fields in the Netlify UI empty
+(or set them to `oman-quest`, `npm run build`, `dist`).
+
 **Public link:** pushing to `main` runs `.github/workflows/oman-quest-pages.yml`,
 which tests, builds and publishes the game to GitHub Pages. Enable it once in
 *Settings → Pages → Source: GitHub Actions*.

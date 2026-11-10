@@ -34,6 +34,6 @@ export function setupInstall() {
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); useInstall.setState({ prompt: e }); });
   window.addEventListener('appinstalled', () => useInstall.setState({ installed: true, prompt: null }));
   if (import.meta.env.PROD && 'serviceWorker' in navigator && window.self === window.top && location.protocol !== 'file:') {
-    window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
+    window.addEventListener('load', () => { navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {}); });
   }
 }
