@@ -124,6 +124,9 @@ export const LINES = {
 };
 
 const last = {};
+let clipFilter = null;
+/** Prefer lines that have a real recording (set by voiceclips.js once loaded). */
+export function setClipFilter(fn) { clipFilter = fn; }
 /**
  * Pick a line for a situation without repeating the previous one.
  * Returns { en, ar, mood }. `%n` is replaced by n.
@@ -131,8 +134,18 @@ const last = {};
 export function line(kind, n) {
   const group = LINES[kind];
   const list = group.list;
-  let i = Math.floor(Math.random() * list.length);
-  if (list.length > 1 && i === last[kind]) i = (i + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length;
+  // If some lines of this kind are recorded, choose only among those, so the
+  // hero always speaks with the real voice instead of the device voice.
+  let pool = list.map((_, k) => k);
+  if (clipFilter && kind !== 'streak') {
+    const rec = pool.filter((k) => clipFilter(`${kind}-${k + 1}`));
+    if (rec.length) pool = rec;
+  }
+  let i = pool[Math.floor(Math.random() * pool.length)];
+  if (pool.length > 1 && i === last[kind]) {
+    const others = pool.filter((k) => k !== i);
+    i = others[Math.floor(Math.random() * others.length)];
+  }
   last[kind] = i;
   const [en, ar] = list[i].map((s) => s.replace('%n', String(n ?? '')));
   // `clip` names the recording for this line (e.g. "correct-3"); streak lines

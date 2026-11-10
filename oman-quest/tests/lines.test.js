@@ -46,3 +46,16 @@ describe('encouragement pacing', () => {
     expect(encourageNow({ streak: 3 })).toBe(false);
   });
 });
+
+import { setClipFilter } from '../src/game/lines.js';
+describe('recorded voice preference', () => {
+  it('chooses only recorded lines when some exist', () => {
+    setClipFilter((clip) => clip === 'reveal-1' || clip === 'correct-2' || clip === 'correct-5');
+    for (let i = 0; i < 30; i++) expect(line('reveal').clip).toBe('reveal-1');
+    const seen = new Set(Array.from({ length: 40 }, () => line('correct').clip));
+    expect([...seen].sort()).toEqual(['correct-2', 'correct-5']);
+    setClipFilter(() => false);
+    expect(new Set(Array.from({ length: 60 }, () => line('wrong').clip)).size).toBeGreaterThan(3);
+    setClipFilter(null);
+  });
+});
