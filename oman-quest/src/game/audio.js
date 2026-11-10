@@ -1,3 +1,5 @@
+import { clipUrl, clipKey } from './voiceclips.js';
+import { LINES } from './lines.js';
 /**
  * All sound is synthesised with the Web Audio API — no audio files to load,
  * so the game starts instantly and works offline. iOS requires a user tap
@@ -204,8 +206,32 @@ if (typeof document !== 'undefined') {
  * `ln` = { en, ar, mood } from lines.js. Arabic is used when the game is in
  * Arabic and the device has an Arabic voice; otherwise English.
  */
+let clipPlayer = null;
+/** Play a real recording of this line if one exists. Returns true if it played. */
+function playRecording(ln, lang) {
+  if (typeof Audio === 'undefined') return false;
+  let url = ln.clip ? clipUrl(clipKey(lang, ln.clip)) : null;
+  if (!url && ln.kind === 'streak') {
+    // streak lines contain a number: use any recorded happy line instead
+    const n = LINES.correct.list.length;
+    for (let k = 0; k < n && !url; k++) url = clipUrl(clipKey(lang, `correct-${1 + Math.floor(Math.random() * n)}`));
+  }
+  if (!url) return false;
+  try {
+    if (clipPlayer) clipPlayer.pause();
+    if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+    clipPlayer = new Audio(url);
+    clipPlayer.volume = 1;
+    clipPlayer.onended = resumeAudio;
+    clipPlayer.play().catch(() => {});
+    return true;
+  } catch { return false; }
+}
+
 export function heroSay(ln, lang = 'en') {
-  if (settings.muted || !settings.voice || typeof speechSynthesis === 'undefined' || !ln) return;
+  if (settings.muted || !settings.voice || !ln) return;
+  if (playRecording(ln, lang)) return; // a real child's voice, when recorded
+  if (typeof speechSynthesis === 'undefined') return;
   try {
     const arVoice = lang === 'ar' ? voiceFor('ar') : null;
     const useAr = lang === 'ar' && arVoice;

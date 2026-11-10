@@ -29,7 +29,7 @@ export const LINES = {
   wrong: { mood: 'sad', list: [
     ['Oh no… not this one.', 'أوه لا… ليست هذه.'],
     ['Hmm, that is not quite right.', 'همم، هذه ليست صحيحة تمامًا.'],
-    ['Oops… let us try again.', 'أوبس… لنحاول مرة أخرى.'],
+    ['Oops… let’s try again.', 'أوبس… لنحاول مرة أخرى.'],
     ['Aww, so close!', 'آه، كنتِ قريبة جدًا!'],
     ['Not this time… read the clue.', 'ليس هذه المرة… اقرئي التلميح.'],
     ['Oh dear… think again, slowly.', 'يا إلهي… فكري مرة أخرى بهدوء.'],
@@ -39,11 +39,11 @@ export const LINES = {
     ['Oh… I believe in you, try again!', 'أوه… أنا أثق بكِ، حاولي مجددًا!'],
   ] },
   reveal: { mood: 'calm', list: [
-    ['That is okay. Let us learn it together.', 'لا بأس. لنتعلّمها معًا.'],
+    ['That is okay. Let’s learn it together.', 'لا بأس. لنتعلّمها معًا.'],
     ['Now we both know the rule!', 'الآن كلتانا تعرف القاعدة!'],
     ['Remember this one for next time.', 'تذكّري هذه للمرة القادمة.'],
     ['Every mistake makes you stronger.', 'كل خطأ يجعلكِ أقوى.'],
-    ['Let us read the explanation together.', 'لنقرأ الشرح معًا.'],
+    ['Let’s read the explanation together.', 'لنقرأ الشرح معًا.'],
   ] },
   hint: { mood: 'calm', list: [
     ['Here is a little clue for you.', 'إليكِ تلميحًا صغيرًا.'],
@@ -86,21 +86,21 @@ export const LINES = {
   ] },
   fall: { mood: 'sad', list: [
     ['Whoa… I fell down.', 'أوه… سقطتُ.'],
-    ['Oops, let us jump more carefully.', 'أوبس، لنقفز بحذر أكثر.'],
+    ['Oops, let’s jump more carefully.', 'أوبس، لنقفز بحذر أكثر.'],
   ] },
   checkpoint: { mood: 'happy', list: [
     ['Checkpoint! Progress saved!', 'نقطة تفتيش! تم الحفظ!'],
     ['Yay, a flag! We are safe here.', 'ياي، علم! نحن بأمان هنا.'],
   ] },
   locked: { mood: 'calm', list: [
-    ['The gate is locked. Let us answer the grammar blocks first.', 'البوابة مقفلة. لنجب عن صناديق القواعد أولًا.'],
+    ['The gate is locked. Let’s answer the grammar blocks first.', 'البوابة مقفلة. لنجب عن صناديق القواعد أولًا.'],
     ['We need all five purple blocks to open it.', 'نحتاج الصناديق البنفسجية الخمسة لفتحها.'],
   ] },
   start: { mood: 'excited', list: [
     ["Let's go! Adventure time!", 'هيا بنا! وقت المغامرة!'],
     ['Ready, set, jump!', 'استعدي، انطلقي، اقفزي!'],
     ['Oman is waiting for us!', 'عُمان تنتظرنا!'],
-    ['I am so excited! Let us learn and play!', 'أنا متحمسة جدًا! لنتعلم ونلعب!'],
+    ['I am so excited! Let’s learn and play!', 'أنا متحمسة جدًا! لنتعلم ونلعب!'],
   ] },
   tap: { mood: 'happy', list: [
     ["Hi! Let's find the purple blocks!", 'مرحبًا! لنبحث عن الصناديق البنفسجية!'],
@@ -119,7 +119,7 @@ export const LINES = {
   ] },
   gameover: { mood: 'sad', list: [
     ['Oh no, no more hearts… but we never give up!', 'أوه لا، نفدت القلوب… لكننا لا نستسلم!'],
-    ['Aww… let us try again together.', 'آه… لنحاول مجددًا معًا.'],
+    ['Aww… let’s try again together.', 'آه… لنحاول مجددًا معًا.'],
   ] },
 };
 
@@ -135,8 +135,14 @@ export function line(kind, n) {
   if (list.length > 1 && i === last[kind]) i = (i + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length;
   last[kind] = i;
   const [en, ar] = list[i].map((s) => s.replace('%n', String(n ?? '')));
-  return { en, ar, mood: group.mood };
+  // `clip` names the recording for this line (e.g. "correct-3"); streak lines
+  // contain a number, so they reuse a recorded "correct" line instead.
+  const clip = kind === 'streak' ? null : `${kind}-${i + 1}`;
+  return { en, ar, mood: group.mood, kind, clip };
 }
+
+/** The lines a teacher can record for the hero (the ones she says out loud). */
+export const RECORDABLE = ['correct', 'wrong', 'reveal'];
 
 /**
  * Pacing, so encouragement stays special instead of appearing every time:
