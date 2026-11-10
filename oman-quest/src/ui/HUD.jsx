@@ -103,6 +103,7 @@ export function PauseMenu() {
         <Btn kind="secondary" onClick={() => go('map')}>🗺️ {T.exitToMap}</Btn>
         <div className="volume">
           <label>{T.sound} <Btn kind="chip" onClick={() => updateSettings({ muted: !settings.muted })}>{settings.muted ? T.off : T.on}</Btn></label>
+          <label>🗣️ {T.voice} <Btn kind="chip" onClick={() => updateSettings({ voice: !settings.voice })}>{settings.voice ? T.on : T.off}</Btn></label>
           <label>🎵 {T.music}<input type="range" min="0" max="1" step="0.05" value={settings.music} onChange={(e) => updateSettings({ music: +e.target.value })} /></label>
           <label>🔔 {T.effects}<input type="range" min="0" max="1" step="0.05" value={settings.sfx} onChange={(e) => updateSettings({ sfx: +e.target.value })} /></label>
           <label>🌐 <Btn kind="chip" onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}>{T.language}</Btn></label>

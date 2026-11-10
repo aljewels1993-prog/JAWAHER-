@@ -4,10 +4,23 @@ import { QUESTION_BY_ID } from '../data/questions.js';
 import { completeQuestion, closeQuestion } from '../game/sim.js';
 import { session } from '../game/session.js';
 import { releaseAll } from '../game/input.js';
-import { speak, sfx } from '../game/audio.js';
+import { speak, sfx, heroSay } from '../game/audio.js';
+import { line } from '../game/lines.js';
+import heroImg from '../assets/hero-full.png';
 import { Btn } from './Screens.jsx';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
+
+/** The hero inside the panel, saying her line with a happy / sad / calm look. */
+function HeroSays({ ln, lang }) {
+  if (!ln) return null;
+  return (
+    <div className={`hero-says mood-${ln.mood}`} key={ln.en}>
+      <img src={heroImg} alt="" />
+      <span className="hero-says-bubble">{lang === 'ar' ? ln.ar : ln.en}</span>
+    </div>
+  );
+}
 const pick = (arr, seed) => arr[Math.abs(seed) % arr.length];
 
 /** The sentence with the gap, optionally highlighting the key words (2nd-level hint). */
@@ -28,7 +41,9 @@ function Prompt({ q, highlight, filled }) {
 
 /** The grammar challenge that opens when a purple block is hit. */
 export function QuestionPanel() {
-  const { question, answer, closeQuestionPanel, t, toast, requestHint, profile } = useGame();
+  const { question, answer, closeQuestionPanel, t, toast, requestHint, profile, lang } = useGame();
+  const [said, setSaid] = useState(null); // the hero's current line { en, ar, mood }
+  const talk = (ln) => { setSaid(ln); heroSay(ln, lang); return ln; };
   const T = t();
   const q = QUESTION_BY_ID[question.questionId];
   const [disabled, setDisabled] = useState([]);
@@ -45,6 +60,7 @@ export function QuestionPanel() {
   const openHint = async () => {
     sfx.click();
     if (hintLevel === 0 && !alreadyTried) await requestHint(q.id);
+    if (hintLevel === 0) talk(line('hint'));
     setHintLevel((h) => Math.min(2, h + 1));
   };
 
@@ -54,12 +70,15 @@ export function QuestionPanel() {
     const r = await answer(q.id, i, { usedHint: hintLevel > 0 });
     setBusy(false);
     if (r.correct) {
+      talk(r.streak >= 3 ? line('streak', r.streak) : line('correct'));
       setResult({ ...r, chosen: i });
       if (r.reward) toast(`🪙 ${T.plusCoins}!`, 'coin');
       if (r.star) setTimeout(() => toast(T.knowledgeStar, 'star'), 400);
     } else if (r.revealed) {
+      talk(line('reveal'));
       setResult({ ...r, chosen: i });
     } else {
+      talk(line('wrong'));
       setDisabled((d) => [...d, i]);
       setHintLevel(2); // after a mistake: show the clue and the key words, never the answer
       setResult({ ...r, chosen: i, retry: true });
@@ -69,9 +88,8 @@ export function QuestionPanel() {
   const finish = () => {
     sfx.click();
     // Tell the hero how it went so she can react in the level.
-    session.heroReaction = result?.correct
-      ? { type: 'cheer', text: pick(T.praise, seed + 1) }
-      : { type: 'learn', text: T.remember + ' 💜' };
+    const ln = said || line(result?.correct ? 'correct' : 'reveal');
+    session.heroReaction = { type: result?.correct ? 'cheer' : 'learn', text: lang === 'ar' ? ln.ar : ln.en, mood: ln.mood };
     if (session.world) completeQuestion(session.world, q.id);
     closeQuestionPanel();
   };
@@ -98,6 +116,7 @@ export function QuestionPanel() {
         </div>
         {!done && hintLevel > 0 && !result?.retry && (
           <div className="feedback hint">
+            <HeroSays ln={said} lang={lang} />
             <p><b>💡 {T.hintBtn}:</b> {q.hint}</p>
             {hintLevel >= 2 && <p className="small">🔎 {T.keyWords}</p>}
             {!alreadyTried && <p className="small">{T.hintCost}</p>}
@@ -117,7 +136,7 @@ export function QuestionPanel() {
         </div>
         {result?.correct && (
           <div className="feedback success">
-            <div className="fb-title">🎉 {pick(T.praise, seed)}</div>
+            <HeroSays ln={said} lang={lang} />
             {result.streak >= 2 && <div className="streak">{T.streak(result.streak)}</div>}
             <div className="reward-row">
               {result.reward ? <span className="reward-chip coin-rain">🪙 {T.plusCoins}</span> : null}
@@ -130,14 +149,16 @@ export function QuestionPanel() {
         )}
         {result?.retry && !done && (
           <div className="feedback retry">
-            <div className="fb-title">💪 {T.notQuite(q.options[result.chosen])}</div>
-            <p>{pick(T.encourage, seed + result.chosen)} {T.oneMoreTry}</p>
+            <HeroSays ln={said} lang={lang} />
+            <div className="fb-title">{T.notQuite(q.options[result.chosen])}</div>
+            <p>{T.oneMoreTry}</p>
             <p><b>💡 {T.hintBtn}:</b> {q.hint}</p>
             <p className="small">🔎 {T.keyWords}</p>
           </div>
         )}
         {result?.revealed && (
           <div className="feedback reveal">
+            <HeroSays ln={said} lang={lang} />
             <div className="fb-title">{T.learnTogether}</div>
             <p><b>{T.correctSentence}:</b> {sentence}</p>
             <p className="why"><b>{T.remember}:</b> {q.explain}</p>

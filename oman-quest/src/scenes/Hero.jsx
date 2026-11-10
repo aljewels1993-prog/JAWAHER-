@@ -31,9 +31,9 @@ function partMaterial(url) {
  * Props:
  *  - state: ref to { vx, vy, onGround, facing, invuln, power, celebrate, landedAt, t,
  *            skid, idleFor, emote: { type, start } }
- *    emote types (short reactions): cheer · hop · spin · learn · wave · ouch
+ *    emote types (short reactions): cheer · hop · spin · learn · wave · ouch · sad
  */
-export const EMOTE_LENGTH = { cheer: 1.5, hop: 0.35, spin: 0.8, learn: 1.3, wave: 1.6, ouch: 0.5 };
+export const EMOTE_LENGTH = { cheer: 1.5, hop: 0.35, spin: 0.8, learn: 1.3, wave: 1.6, ouch: 0.5, sad: 1.8 };
 export function HeroPuppet({ state }) {
   const root = useRef();
   const turn = useRef();
@@ -113,6 +113,12 @@ export function HeroPuppet({ state }) {
       } else if (e.type === 'wave') {
         body.current.rotation.z = Math.sin(k * Math.PI * 6) * 0.14;
         root.current.position.y = Math.abs(Math.sin(k * Math.PI * 3)) * 0.12;
+      } else if (e.type === 'sad') {
+        // droop: shrink a little, lean forward, slow sway — then recover
+        root.current.scale.y *= 1 - 0.07 * fade;
+        root.current.scale.x *= 1 + 0.03 * fade;
+        body.current.rotation.z = (0.1 + Math.sin(k * Math.PI * 2) * 0.05) * fade * -(s.facing || 1);
+        legL.current.rotation.z = 0.08 * fade; legR.current.rotation.z = -0.08 * fade;
       } else if (e.type === 'ouch') {
         body.current.rotation.z = 0.28 * fade * (s.facing || 1);
       }
