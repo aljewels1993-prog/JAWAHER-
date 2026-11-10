@@ -66,7 +66,7 @@ export function InstallHelp() {
   return (
     <Modal title={`📲 ${T.installTitle}`} onClose={closeHelp}>
       <div className="install-help">
-        <img src="./icons/icon-192.png" alt="" width="96" height="96" />
+        <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="" width="96" height="96" />
         <ol>{steps.map((s) => <li key={s}>{s}</li>)}</ol>
       </div>
       <p className="small">✈️ {T.installOffline}</p>

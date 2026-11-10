@@ -10,6 +10,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  BASE_PATH = "/"            # absolute asset URLs so deep links work
 
 # Single-page app: any unknown path opens the game. Real files (assets,
 # sw.js, manifest, icons) are served first because this rule is not forced.
