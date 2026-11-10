@@ -43,7 +43,8 @@ function Prompt({ q, highlight, filled }) {
 export function QuestionPanel() {
   const { question, answer, closeQuestionPanel, t, toast, requestHint, profile, lang } = useGame();
   const [said, setSaid] = useState(null); // the hero's current line { en, ar, mood }
-  const talk = (ln) => { setSaid(ln); heroSay(ln, lang); return ln; };
+  // Her voice is heard only after a right or a wrong answer.
+  const talk = (ln, { voice = true } = {}) => { setSaid(ln); if (voice) heroSay(ln, lang); return ln; };
   const T = t();
   const q = QUESTION_BY_ID[question.questionId];
   const [disabled, setDisabled] = useState([]);
@@ -60,7 +61,7 @@ export function QuestionPanel() {
   const openHint = async () => {
     sfx.click();
     if (hintLevel === 0 && !alreadyTried) await requestHint(q.id);
-    if (hintLevel === 0) talk(line('hint'));
+    if (hintLevel === 0) talk(line('hint'), { voice: false });
     setHintLevel((h) => Math.min(2, h + 1));
   };
 
@@ -75,7 +76,7 @@ export function QuestionPanel() {
       if (r.reward) toast(`🪙 ${T.plusCoins}!`, 'coin');
       if (r.star) setTimeout(() => toast(T.knowledgeStar, 'star'), 400);
     } else if (r.revealed) {
-      talk(line('reveal'));
+      talk({ ...line('reveal'), mood: 'sad' }); // second wrong answer: soft, gentle voice
       setResult({ ...r, chosen: i });
     } else {
       talk(line('wrong'));

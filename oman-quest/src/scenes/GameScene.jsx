@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { buildLevel } from '../game/level.js';
 import { createWorld, step, progressOf, pipeUnder, gateOpen } from '../game/sim.js';
 import { input } from '../game/input.js';
-import { sfx, heroSay } from '../game/audio.js';
+import { sfx } from '../game/audio.js';
 import { line } from '../game/lines.js';
 import { STRINGS } from '../game/i18n.js';
 import { useGame } from '../game/store.js';
@@ -122,12 +122,14 @@ export default function GameScene() {
     idle.current = 0;
   };
   const MOOD_EMOTE = { happy: 'cheer', excited: 'spin', sad: 'sad', calm: 'learn' };
-  /** She says a line: speech bubble + voice in her mood + matching body language. */
-  const talk = (lnOrKind, n, { emote: em, secs = 2.6, important = true } = {}) => {
+  /**
+   * In the level she reacts with a (silent) speech bubble and body language.
+   * Her voice is used only for right / wrong answers, in the question panel.
+   */
+  const talk = (lnOrKind, n, { emote: em, secs = 2.6 } = {}) => {
     const ln = typeof lnOrKind === 'string' ? line(lnOrKind, n) : lnOrKind;
     const lang = useGame.getState().lang;
     react(em || MOOD_EMOTE[ln.mood], lang === 'ar' ? ln.ar : ln.en, secs, ln.mood);
-    heroSay(ln, lang, { important });
   };
 
 
@@ -271,7 +273,7 @@ export default function GameScene() {
       case 'land': if (p.vy === 0) f?.burst(p.x, p.y + 0.05, 0.4, { n: 6, colors: ['#e8d8b8'], speed: 1.5, life: 0.35, size: 0.25, gravity: 1 }); break;
       case 'coin': sfx.coin(); if (!emote.current || clockRef.current - emote.current.start > 0.8) react('hop');
         coinCount.current += 1;
-        if (coinCount.current % 8 === 0) talk('coin', 0, { emote: 'hop', secs: 1.4, important: false }); f?.burst(e.x, e.y, 0.2, { n: 10, colors: ['#ffd34d', '#fff2a0'], speed: 3, life: 0.5, size: 0.3 }); break;
+        if (coinCount.current % 8 === 0) talk('coin', 0, { emote: 'hop', secs: 1.4 }); f?.burst(e.x, e.y, 0.2, { n: 10, colors: ['#ffd34d', '#fff2a0'], speed: 3, life: 0.5, size: 0.3 }); break;
       case 'star': sfx.star(); f?.burst(e.x, e.y, 0.2, { n: 30, colors: ['#ffd34d', '#ffffff', '#ff9d2e'], speed: 5, life: 0.8, size: 0.45 }); if (w.stats.stars >= level.totalStars) talk('allStars', 0, { emote: 'spin' });
         else { const ln = line('star'); talk({ ...ln, en: `${ln.en} ${w.stats.stars}/${level.totalStars}`, ar: `${ln.ar} ${w.stats.stars}/${level.totalStars}` }, 0, { emote: 'spin' }); }
         break;
@@ -292,7 +294,7 @@ export default function GameScene() {
       case 'question': sfx.reveal(); G.openQuestion(e.questionId); break;
       case 'gateLocked': sfx.locked(); talk('locked', 0, { secs: 3 }); G.toast(`🔒 ${(level.final ? G.t().towerLocked : G.t().gateLocked)(e.remaining)}`, 'warn'); break;
       case 'finished':
-        sfx.fanfare(); celebrate.current = true; heroSay(line('finish'), G.lang);
+        sfx.fanfare(); celebrate.current = true; talk('finish', 0, { emote: 'cheer' });
         f?.burst(p.x, p.y + 2, 0.5, { n: 60, colors: ['#ffd34d', '#5ff2df', '#ffffff'], speed: 6, life: 1.2 });
         setTimeout(() => useGame.getState().finishStage({ coins: w.stats.coins, stars: w.stats.stars, secret: w.secretFound, totalStars: level.totalStars }), 1400);
         break;
