@@ -7,7 +7,7 @@ import { bindKeyboard } from './game/input.js';
 import GameScene from './scenes/GameScene.jsx';
 import MapScene from './scenes/MapScene.jsx';
 import MenuScene from './scenes/MenuScene.jsx';
-import { Welcome, NameEntry, MapPanel, Instructions, Leaderboard, Toasts, TopBar, InstallHelp } from './ui/Screens.jsx';
+import { Welcome, NameEntry, MapPanel, Instructions, Leaderboard, Toasts, TopBar, InstallHelp, StarTreasury } from './ui/Screens.jsx';
 import { HUD, TouchControls, PauseMenu, GameOver, Results } from './ui/HUD.jsx';
 import { QuestionPanel } from './ui/QuestionPanel.jsx';
 import { Certificate } from './ui/Certificate.jsx';
@@ -61,6 +61,7 @@ export default function App() {
           {screen === 'game' && (
             <>
               <HUD />
+              <div id="hero-bubble" className="hero-bubble" aria-live="polite" />
               <TouchControls />
               {question && <QuestionPanel key={question.questionId} />}
               {overlay === 'pause' && <PauseMenu />}
@@ -72,6 +73,7 @@ export default function App() {
           {screen === 'teacher' && <TeacherDashboard />}
           {overlay === 'instructions' && <Instructions />}
           {overlay === 'leaderboard' && <Leaderboard />}
+          {overlay === 'treasury' && <StarTreasury />}
           <InstallHelp />
           <Toasts />
         </>

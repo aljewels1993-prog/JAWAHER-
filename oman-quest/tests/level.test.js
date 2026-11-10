@@ -28,6 +28,8 @@ describe('level generator', () => {
         expect(lv.finish).toBeTruthy();
         expect(lv.movers.length).toBeGreaterThan(0);
         expect(lv.solids.some((s) => s.kind === 'qblock')).toBe(true);
+        expect(lv.totalStars).toBeGreaterThanOrEqual(lv.stars.length);
+        expect(lv.totalStars).toBeGreaterThan(0);
       });
       it('keeps every obstacle on the ground low enough to jump over', () => {
         const maxTop = apex(P.jumpVelocity) - 0.25;

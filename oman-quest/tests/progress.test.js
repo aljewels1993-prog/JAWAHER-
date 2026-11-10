@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { newProfile, recordAnswer, totals, completeStage, isStageUnlocked, currentStage, liveCoins, cleanName } from '../src/game/progress.js';
+import { newProfile, recordAnswer, totals, completeStage, isStageUnlocked, currentStage, liveCoins, cleanName, markHintUsed, rewardsReady, claimStarReward, currentTitle, stageRating } from '../src/game/progress.js';
 import { QUESTIONS } from '../src/data/questions.js';
 import { createLocalBackend } from '../src/net/backend.js';
 import { webcrypto } from 'node:crypto';
@@ -119,5 +119,48 @@ describe('local backend', () => {
     const after = await b.teacherStudents();
     expect(after[0].score).toBe(0);
     expect(after[0].name).toBe('Huda');
+  });
+});
+
+describe('stars and rewards', () => {
+  it('a Knowledge Star needs a first-try answer without a hint', () => {
+    const p = newProfile('Aisha', 'id1');
+    const [q1, q2, q3] = QUESTIONS;
+    expect(recordAnswer(p, q1.id, q1.answer).star).toBe(true);
+    markHintUsed(p, q2.id);
+    const r2 = recordAnswer(p, q2.id, q2.answer, { usedHint: true });
+    expect(r2).toMatchObject({ star: false, reward: 10 });
+    recordAnswer(p, q3.id, (q3.answer + 1) % 4);
+    expect(recordAnswer(p, q3.id, q3.answer)).toMatchObject({ star: false, reward: 10 });
+    expect(totals(p).knowledgeStars).toBe(1);
+    expect(totals(p).stars).toBe(1);
+  });
+  it('counts a streak of first-try answers and resets it on a mistake', () => {
+    const p = newProfile('Aisha', 'id1');
+    expect(recordAnswer(p, QUESTIONS[0].id, QUESTIONS[0].answer).streak).toBe(1);
+    expect(recordAnswer(p, QUESTIONS[1].id, QUESTIONS[1].answer).streak).toBe(2);
+    expect(recordAnswer(p, QUESTIONS[2].id, (QUESTIONS[2].answer + 1) % 4).streak).toBe(0);
+  });
+  it('star milestones open a coin chest once and give a title', () => {
+    const p = newProfile('Aisha', 'id1');
+    expect(rewardsReady(p)).toHaveLength(0);
+    for (const q of QUESTIONS.slice(0, 6)) recordAnswer(p, q.id, q.answer);
+    expect(rewardsReady(p).map((r) => r.id)).toEqual(['rising-star']);
+    const before = totals(p).coins;
+    expect(claimStarReward(p, 'rising-star').coins).toBe(20);
+    expect(totals(p).coins).toBe(before + 20);
+    expect(claimStarReward(p, 'rising-star')).toBe(null);
+    expect(claimStarReward(p, 'desert-star')).toBe(null);
+    expect(currentTitle(p).en).toBe('Rising Star');
+  });
+  it('rates a stage with up to 3 stars', () => {
+    const p = newProfile('Aisha', 'id1');
+    expect(stageRating(p, 1).stars).toBe(0);
+    completeStage(p, 1, { coins: 10, stars: 2, totalStars: 4 });
+    expect(stageRating(p, 1)).toMatchObject({ stars: 1, complete: true, grammar: false, allStars: false });
+    for (const q of QUESTIONS.filter((x) => x.stage === 1)) recordAnswer(p, q.id, q.answer);
+    expect(stageRating(p, 1).stars).toBe(2);
+    completeStage(p, 1, { coins: 5, stars: 4, totalStars: 4 });
+    expect(stageRating(p, 1).stars).toBe(3);
   });
 });

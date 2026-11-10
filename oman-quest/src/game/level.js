@@ -295,5 +295,7 @@ export function buildLevel(stage) {
   }
   // Left wall so the player can't walk off the start.
   solid('wall', -13, 0, 1, 30);
+  // Every star a student can find here: placed stars + stars inside ? blocks.
+  lv.totalStars = lv.stars.length + lv.solids.filter((s) => s.kind === 'qblock' && s.content === 'star').length;
   return lv;
 }

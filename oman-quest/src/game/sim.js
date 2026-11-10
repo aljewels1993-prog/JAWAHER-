@@ -97,7 +97,8 @@ function subStep(w, dt, input, events) {
 
   // ── horizontal control ──
   const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  const accel = p.onGround ? P.accelGround : P.accelAir;
+  let accel = p.onGround ? P.accelGround : P.accelAir;
+  if (dir !== 0 && p.vx !== 0 && Math.sign(p.vx) !== dir) accel *= P.turnBoost; // snappy turnaround
   if (dir !== 0) {
     p.vx += dir * accel * dt;
     p.vx = Math.max(-P.runSpeed, Math.min(P.runSpeed, p.vx));

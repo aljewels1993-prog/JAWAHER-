@@ -32,8 +32,10 @@ export function cleanName(name) {
  *    within the allowed attempts; never twice for the same question)
  *  - done: the question is finished (solved, or revealed after too many tries)
  *  - revealed: the correct answer is now shown without a reward
+ *  - star: a Knowledge Star was earned (right on the first try, no hint used)
+ *  - streak: correct-first-try answers in a row
  */
-export function recordAnswer(profile, questionId, chosen) {
+export function recordAnswer(profile, questionId, chosen, { usedHint = false } = {}) {
   const q = QUESTION_BY_ID[questionId];
   if (!q) throw new Error(`Unknown question ${questionId}`);
   const a = profile.answers[questionId] || { done: false, rewarded: false, attempts: 0, wrong: [] };
@@ -41,17 +43,29 @@ export function recordAnswer(profile, questionId, chosen) {
   if (a.done) return { correct: chosen === q.answer, reward: 0, done: true, revealed: false, repeat: true };
   a.attempts += 1;
   a.at = new Date().toISOString();
+  if (usedHint) a.hinted = true;
   const correct = chosen === q.answer;
   let reward = 0;
   let revealed = false;
+  let star = false;
   if (correct) {
     a.done = true;
     if (!a.rewarded) { a.rewarded = true; reward = TUNING.rewards.questionCorrect; }
+    if (a.attempts === 1 && !a.hinted) { a.star = true; star = true; }
+    profile.streak = star ? (profile.streak || 0) + 1 : 0;
   } else {
     a.wrong.push(chosen);
+    profile.streak = 0;
     if (a.attempts >= MAX_ATTEMPTS_BEFORE_REVEAL) { a.done = true; revealed = true; }
   }
-  return { correct, reward, done: a.done, revealed, attempts: a.attempts };
+  return { correct, reward, done: a.done, revealed, attempts: a.attempts, star, streak: profile.streak || 0 };
+}
+
+/** Remember that a hint was opened before answering (no Knowledge Star then). */
+export function markHintUsed(profile, questionId) {
+  const a = profile.answers[questionId] || { done: false, rewarded: false, attempts: 0, wrong: [] };
+  profile.answers[questionId] = a;
+  if (!a.done) a.hinted = true;
 }
 
 export const isQuestionDone = (profile, qid) => !!profile.answers[qid]?.done;
@@ -64,18 +78,78 @@ export function grammarCoins(profile) {
   return Object.values(profile.answers).filter((a) => a.rewarded).length * TUNING.rewards.questionCorrect;
 }
 
+/**
+ * Star Treasury: milestones of total stars. Each one gives a chest of bonus
+ * coins (claimed once) and a title shown on the student's card.
+ */
+export const STAR_REWARDS = [
+  { id: 'rising-star', stars: 5, coins: 20, icon: '🌟', en: 'Rising Star', ar: 'النجمة الصاعدة' },
+  { id: 'desert-star', stars: 15, coins: 30, icon: '🏜️', en: 'Desert Star', ar: 'نجمة الصحراء' },
+  { id: 'sea-star', stars: 30, coins: 40, icon: '🌊', en: 'Star of the Sea', ar: 'نجمة البحر' },
+  { id: 'mountain-star', stars: 50, coins: 50, icon: '⛰️', en: 'Mountain Star', ar: 'نجمة الجبال' },
+  { id: 'scholar-star', stars: 75, coins: 75, icon: '📚', en: 'Shining Scholar', ar: 'العالِمة المتألقة' },
+  { id: 'oman-star', stars: 100, coins: 100, icon: '🇴🇲', en: 'Star of Oman', ar: 'نجمة عُمان' },
+];
+
+export const knowledgeStars = (profile) => Object.values(profile.answers).filter((a) => a.star).length;
+
+function rewardCoins(profile) {
+  const claimed = profile.starRewards || [];
+  return STAR_REWARDS.filter((r) => claimed.includes(r.id)).reduce((n, r) => n + r.coins, 0);
+}
+
+/** Milestones reached but not opened yet. */
+export function rewardsReady(profile) {
+  const s = totals(profile).stars;
+  const claimed = profile.starRewards || [];
+  return STAR_REWARDS.filter((r) => s >= r.stars && !claimed.includes(r.id));
+}
+
+/** Open a reached milestone chest; returns the reward or null (never twice). */
+export function claimStarReward(profile, id) {
+  const r = rewardsReady(profile).find((x) => x.id === id);
+  if (!r) return null;
+  profile.starRewards = [...(profile.starRewards || []), r.id];
+  return r;
+}
+
+/** The best title earned so far (highest claimed milestone). */
+export function currentTitle(profile) {
+  const claimed = profile.starRewards || [];
+  return [...STAR_REWARDS].reverse().find((r) => claimed.includes(r.id)) || null;
+}
+
+/**
+ * Stage rating, up to 3 stars:
+ *  1 — stage completed
+ *  2 — all 5 grammar questions answered correctly (within the allowed tries)
+ *  3 — every star in the stage found (including hidden ones)
+ */
+export function stageRating(profile, stageId) {
+  const rec = profile.stages[stageId];
+  const qs = QUESTIONS.filter((q) => q.stage === stageId);
+  const checks = {
+    complete: !!rec?.completed,
+    grammar: qs.every((q) => profile.answers[q.id]?.rewarded),
+    allStars: !!rec?.allStars,
+  };
+  return { ...checks, stars: Object.values(checks).filter(Boolean).length };
+}
+
 export function totals(profile) {
   const st = Object.values(profile.stages);
   const worldCoins = st.reduce((n, s) => n + (s.bestCoins || 0), 0);
-  const stars = st.reduce((n, s) => n + (s.bestStars || 0), 0);
+  const collected = st.reduce((n, s) => n + (s.bestStars || 0), 0);
+  const kStars = knowledgeStars(profile);
+  const stars = collected + kStars;
   const gCoins = grammarCoins(profile);
-  const coins = worldCoins + gCoins;
+  const coins = worldCoins + gCoins + rewardCoins(profile);
   const stagesCompleted = st.filter((s) => s.completed).length;
   const questionsDone = Object.values(profile.answers).filter((a) => a.done).length;
   const correct = Object.values(profile.answers).filter((a) => a.rewarded).length;
   const wrongAnswers = Object.values(profile.answers).reduce((n, a) => n + a.wrong.length, 0);
   const score = coins + stars * TUNING.rewards.star;
-  return { coins, grammarCoins: gCoins, worldCoins, stars, stagesCompleted, questionsDone, correct, wrongAnswers, score };
+  return { coins, grammarCoins: gCoins, worldCoins, stars, collectedStars: collected, knowledgeStars: kStars, stagesCompleted, questionsDone, correct, wrongAnswers, score };
 }
 
 /** A stage is playable if it's the first one or the previous one is complete. */
@@ -113,6 +187,7 @@ export function completeStage(profile, stageId, run) {
     bestStars: Math.max(prev.bestStars || 0, run.stars || 0),
     plays: (prev.plays || 0) + 1,
     secret: prev.secret || !!run.secret,
+    allStars: prev.allStars || (run.totalStars > 0 && (run.stars || 0) >= run.totalStars),
   };
   if (stageId === TOTAL_STAGES && !profile.finishedAt) profile.finishedAt = new Date().toISOString();
   return refreshBadges(profile);

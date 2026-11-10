@@ -4,7 +4,8 @@ import { press, releaseAll } from '../game/input.js';
 import { respawn } from '../game/sim.js';
 import { session } from '../game/session.js';
 import { STAGE_BY_ID, TOTAL_STAGES } from '../data/stages.js';
-import { BADGES, totals } from '../game/progress.js';
+import { BADGES, totals, rewardsReady } from '../game/progress.js';
+import { StarRating } from './Screens.jsx';
 import { questionsForStage } from '../data/questions.js';
 import { Btn } from './Screens.jsx';
 import heroImg from '../assets/hero-full.png';
@@ -25,7 +26,7 @@ export function HUD() {
       </div>
       <div className="hud-stats">
         <span className="pill coin">🪙 {hud.coins}</span>
-        <span className="pill star">⭐ {hud.stars}</span>
+        <span className="pill star" title="stars">⭐ {hud.stars}{hud.stageStarsTotal ? <small> · {hud.stageStars}/{hud.stageStarsTotal}</small> : null}</span>
         <span className="pill hearts" aria-label="hearts">{'❤️'.repeat(Math.max(0, hud.hearts))}{'🤍'.repeat(Math.max(0, 3 - hud.hearts))}</span>
         <span className="pill quest" title={T.questions}>📘 {qDone}/5 <small>· {5 - qDone} {T.challenges}</small></span>
       </div>
@@ -158,6 +159,18 @@ export function Results() {
         <div className="emoji-big">🎉</div>
         <h2>{T.stageClear}</h2>
         <p className="motivation">{msg}</p>
+        {results.rating && (
+          <div className="rating-box">
+            <StarRating n={results.rating.stars} big />
+            <ul className="rating-list">
+              <li className="ok">✓ {T.rateComplete}</li>
+              <li className={results.rating.grammar ? 'ok' : ''}>{results.rating.grammar ? '✓' : '○'} {T.rateGrammar}</li>
+              <li className={results.rating.allStars ? 'ok' : ''}>{results.rating.allStars ? '✓' : '○'} {T.rateStars(results.run.stars, results.run.totalStars)}</li>
+            </ul>
+            <p className="small">{T.knowledgeEarned(questionsForStage(results.stageId).filter((q) => profile.answers[q.id]?.star).length)}</p>
+          </div>
+        )}
+        {rewardsReady(profile).length > 0 && <p className="chest-ready">{T.chestReady}</p>}
         <div className="result-stats">
           <span>🪙 +{results.run.coins}</span><span>⭐ +{results.run.stars}</span>
           <span>📘 {questionsForStage(results.stageId).filter((q) => profile.answers[q.id]?.rewarded).length}/5 ✓</span>
