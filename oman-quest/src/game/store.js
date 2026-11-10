@@ -22,7 +22,7 @@ export const useGame = create((set, get) => ({
   backend: null,
   ready: false,
   lang: prefs.lang || 'en',
-  settings: { muted: false, music: 0.6, sfx: 0.8, ...(prefs.settings || {}) },
+  settings: { muted: false, music: 0.6, sfx: 0.8, voice: true, ...(prefs.settings || {}) },
   screen: 'welcome',
   overlay: null, // 'instructions' | 'leaderboard' | 'pause' | null
   profile: null,
