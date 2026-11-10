@@ -8,6 +8,7 @@
     "dev": "vite --host",
     "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview --host",
+    "build:artifact": "vite build --mode artifact",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:db": "bash supabase/tests/run-local.sh"
@@ -26,6 +27,7 @@
     "jsdom": "25.0.1",
     "typescript": "5.6.3",
     "vite": "5.4.21",
+    "vite-plugin-singlefile": "2.0.3",
     "vitest": "2.1.9"
   }
 }

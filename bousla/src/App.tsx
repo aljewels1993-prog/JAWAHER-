@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { I18nProvider, useI18n } from './i18n';
 import { AuthProvider, useAuth } from './state/auth';
 import { FeedbackProvider } from './state/feedback';
@@ -69,7 +69,7 @@ function NotFound() {
       <div style={{ width: 140, margin: '0 auto' }}><Mascot mood="wink" /></div>
       <h1 style={{ color: 'var(--navy)' }}>{t('notFound.title')}</h1>
       <p style={{ color: 'var(--ink-2)', margin: '8px 0 16px', fontWeight: 700 }}>{t('notFound.body')}</p>
-      <a className="btn" href="/">{t('nav.home')}</a>
+      <Link className="btn" to="/">{t('nav.home')}</Link>
     </div>
   );
 }
@@ -100,9 +100,12 @@ function AppRoutes() {
   );
 }
 
+// The single-file preview runs inside a frame, so it routes in memory.
+const Router = import.meta.env.VITE_ROUTER === 'memory' ? MemoryRouter : BrowserRouter;
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <I18nProvider>
         <AuthProvider>
           <FeedbackProvider>
@@ -114,6 +117,6 @@ export default function App() {
           </FeedbackProvider>
         </AuthProvider>
       </I18nProvider>
-    </BrowserRouter>
+    </Router>
   );
 }

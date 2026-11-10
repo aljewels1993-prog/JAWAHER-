@@ -8,7 +8,23 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 /** Cloud when Supabase is configured at build time; otherwise device-only mode. */
 export const cloudConfigured = !!(url && key && url.startsWith('https://'));
 
-export const api: Api = cloudConfigured ? createSupabaseApi(url!, key!) : createDeviceApi();
+/** localStorage, or an in-memory store where the browser blocks it. */
+function safeStorage(): Storage {
+  try {
+    const s = window.localStorage;
+    s.setItem('bousla.probe', '1');
+    s.removeItem('bousla.probe');
+    return s;
+  } catch {
+    const m = new Map<string, string>();
+    return {
+      get length() { return m.size; }, clear: () => m.clear(), key: (i: number) => [...m.keys()][i] ?? null,
+      getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, String(v)); }, removeItem: (k: string) => { m.delete(k); },
+    };
+  }
+}
+
+export const api: Api = cloudConfigured ? createSupabaseApi(url!, key!) : createDeviceApi(safeStorage());
 
 if (!cloudConfigured && typeof window !== 'undefined') {
   // Device-mode admin helper, for previews only: __bousla.promoteToTeacher('email')

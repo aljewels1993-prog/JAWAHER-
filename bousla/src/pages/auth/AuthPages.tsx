@@ -245,7 +245,7 @@ export function ResetPasswordPage() {
       {done ? (
         <>
           <div className="alert success" role="status">✅ {t('auth.passwordUpdated')}</div>
-          <a className="btn block" href="/">{t('nav.home')}</a>
+          <Link className="btn block" to="/">{t('nav.home')}</Link>
         </>
       ) : !account ? (
         <>

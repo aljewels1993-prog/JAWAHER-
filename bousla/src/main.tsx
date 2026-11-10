@@ -16,7 +16,7 @@ createRoot(document.getElementById('root')!).render(
 );
 
 // Installable PWA + offline fallback (production builds only).
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+if ('serviceWorker' in navigator && import.meta.env.PROD && import.meta.env.VITE_ROUTER !== 'memory') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => { /* app still works without it */ });
   });
