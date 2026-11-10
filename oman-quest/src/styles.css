@@ -333,14 +333,14 @@ input:focus { border-color: var(--turq); box-shadow: 0 0 0 4px rgba(24, 198, 180
 .hero-says img { height: 74px; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2)); transform-origin: bottom center; }
 .hero-says-bubble { position: relative; background: #fff; border: 3px solid var(--gold-2); border-radius: 16px; padding: 6px 12px; font-weight: 800; font-size: 1.05rem; color: var(--purple); max-width: 320px; text-align: start; }
 .hero-says-bubble::before { content: ''; position: absolute; inset-inline-start: -10px; bottom: 12px; border: 8px solid transparent; border-inline-end-color: var(--gold-2); border-inline-start: 0; }
-.mood-happy img, .mood-excited img { animation: heroHappy 0.55s ease-in-out 3; }
+.mood-happy img, .mood-excited img { animation: heroHappy 0.7s ease-in-out 2; }
 .mood-happy .hero-says-bubble, .mood-excited .hero-says-bubble { background: #fff8d6; border-color: #f0b400; color: #7a4a00; font-size: 1.2rem; animation: pop 0.35s; }
 .mood-excited .hero-says-bubble { background: linear-gradient(90deg, #fff1a8, #ffe0f0); }
 .mood-sad img { animation: heroSad 1.6s ease-in-out forwards; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2)) saturate(0.85); }
 .mood-sad .hero-says-bubble { background: #e8f1ff; border-color: #7aa7e8; color: #2b4a80; animation: fadeIn 0.6s; }
 .mood-calm .hero-says-bubble { background: #f3edff; border-color: var(--purple-2); }
-@keyframes heroHappy { 0%, 100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-14px) rotate(-6deg); } 60% { transform: translateY(-4px) rotate(5deg); } }
-@keyframes heroSad { 0% { transform: none; } 40% { transform: translateY(4px) scaleY(0.94) rotate(-4deg); } 70% { transform: translateY(4px) scaleY(0.94) rotate(3deg); } 100% { transform: translateY(3px) scaleY(0.96) rotate(-2deg); } }
+@keyframes heroHappy { 0%, 100% { transform: translateY(0) rotate(0); } 35% { transform: translateY(-6px) rotate(-2deg); } 65% { transform: translateY(-2px) rotate(1.5deg); } }
+@keyframes heroSad { 0% { transform: none; } 40% { transform: translateY(2px) scaleY(0.97) rotate(-1.5deg); } 70% { transform: translateY(2px) scaleY(0.97) rotate(1deg); } 100% { transform: translateY(2px) scaleY(0.98) rotate(-0.5deg); } }
 @keyframes fadeIn { from { opacity: 0; } }
 /* mood colours for the in-level speech bubble too */
 .hero-bubble[data-mood='sad'] { background: #e8f1ff; border-color: #7aa7e8; color: #2b4a80; }
@@ -349,3 +349,20 @@ input:focus { border-color: var(--turq); box-shadow: 0 0 0 4px rgba(24, 198, 180
 .hero-bubble[data-mood='excited'] { font-size: 1.05rem; }
 .hero-bubble[data-mood='calm'] { background: #f3edff; border-color: var(--purple-2); }
 @media (prefers-reduced-motion: reduce) { .hero-says img { animation: none !important; } }
+
+/* ───────── voice studio (teacher) ───────── */
+.voice-studio { background: var(--beige); color: var(--ink); border: 3px solid var(--gold-2); border-radius: 18px; padding: 12px 14px; margin: 12px 0; display: flex; flex-direction: column; gap: 8px; }
+.vs-head { display: flex; justify-content: space-between; align-items: center; }
+.vs-head h3 { margin: 0; color: var(--purple); }
+.vs-tips { margin: 0; padding-inline-start: 18px; display: grid; gap: 2px; }
+.vs-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.vs-langs { display: flex; gap: 6px; }
+.vs-count { font-weight: 800; color: #1d8a2a; }
+.vs-upload { cursor: pointer; }
+.vs-group h4 { margin: 8px 0 4px; color: var(--purple); }
+.vs-line { display: flex; gap: 8px; align-items: center; background: #fff; border-radius: 12px; padding: 6px 8px; margin-bottom: 6px; border: 2px solid transparent; }
+.vs-line.has { border-color: #8be08f; }
+.vs-line.rec { border-color: var(--danger); animation: pulse 1s infinite; }
+.vs-text { flex: 1; min-width: 0; font-weight: 700; }
+.vs-mood { font-size: 1.2rem; }
+@media (max-width: 560px) { .vs-line { flex-wrap: wrap; } .vs-text { flex-basis: 100%; } }

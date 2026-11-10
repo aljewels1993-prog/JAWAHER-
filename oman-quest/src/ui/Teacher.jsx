@@ -3,6 +3,7 @@ import { useGame } from '../game/store.js';
 import { QUESTION_BY_ID } from '../data/questions.js';
 import { STAGES } from '../data/stages.js';
 import { Btn, TopBar } from './Screens.jsx';
+import { VoiceStudio } from './VoiceStudio.jsx';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -21,6 +22,7 @@ export function TeacherDashboard() {
   const [students, setStudents] = useState(null);
   const [open, setOpen] = useState(null);
   const [filter, setFilter] = useState('');
+  const [studio, setStudio] = useState(false);
   const cloud = backend.mode === 'cloud';
   const needsSetup = !cloud && backend.teacherNeedsSetup();
 
@@ -68,11 +70,13 @@ export function TeacherDashboard() {
         <h2>👩‍🏫 {T.teacherTitle}</h2>
         <div className="dash-actions">
           <input placeholder="🔎" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <Btn kind="gold" onClick={() => setStudio(!studio)}>🎙️ {T.voiceStudio}</Btn>
           <Btn kind="secondary" onClick={load}>↻ {T.refresh}</Btn>
           <Btn kind="ghost" onClick={logout}>{T.signOut}</Btn>
         </div>
       </div>
       {err && <p className="error">{err}</p>}
+      {studio && <VoiceStudio onClose={() => setStudio(false)} />}
       <div className="dash-summary">
         <div><b>{students?.length ?? 0}</b><span>{T.students}</span></div>
         <div><b>{students?.filter((s) => s.stages >= 10).length ?? 0}</b><span>🏆</span></div>

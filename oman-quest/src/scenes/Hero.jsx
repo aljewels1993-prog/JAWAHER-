@@ -64,8 +64,8 @@ export function HeroPuppet({ state }) {
 
     // legs
     let swing = 0; let tuckL = 0; let tuckR = 0;
-    if (running) { a.phase += dt * (6 + speed * 1.3); swing = Math.sin(a.phase) * Math.min(0.55, 0.15 + speed * 0.06); }
-    else if (!s.onGround) { tuckL = s.vy > 0 ? 0.45 : 0.15; tuckR = s.vy > 0 ? -0.25 : -0.1; }
+    if (running) { a.phase += dt * (6 + speed * 1.3); swing = Math.sin(a.phase) * Math.min(0.42, 0.12 + speed * 0.045); }
+    else if (!s.onGround) { tuckL = s.vy > 0 ? 0.3 : 0.1; tuckR = s.vy > 0 ? -0.16 : -0.06; }
     else a.phase = 0;
     legL.current.rotation.z = swing + tuckL;
     legR.current.rotation.z = -swing + tuckR;
@@ -73,23 +73,23 @@ export function HeroPuppet({ state }) {
     // squash & stretch
     const sinceLand = (s.t ?? t) - (s.landedAt ?? -10);
     let sy = 1;
-    if (!s.onGround) sy = 1 + Math.min(0.08, Math.abs(s.vy) * 0.004);
-    else if (sinceLand < 0.15) sy = 0.9 + (sinceLand / 0.15) * 0.1;
-    else if (!running) sy = 1 + Math.sin(t * 2.4) * 0.012; // breathing
+    if (!s.onGround) sy = 1 + Math.min(0.04, Math.abs(s.vy) * 0.002);
+    else if (sinceLand < 0.15) sy = 0.95 + (sinceLand / 0.15) * 0.05;
+    else if (!running) sy = 1 + Math.sin(t * 2.4) * 0.006; // gentle breathing
     a.squash += (sy - a.squash) * Math.min(1, dt * 20);
     root.current.scale.set(1 + (1 - a.squash) * 0.6, a.squash, 1);
 
     // body bob + lean while running
-    body.current.position.y = BODY_BOTTOM + (running ? Math.abs(Math.sin(a.phase)) * 0.06 : 0);
-    body.current.rotation.z = running ? -0.06 : (!s.onGround ? -0.04 : 0);
+    body.current.position.y = BODY_BOTTOM + (running ? Math.abs(Math.sin(a.phase)) * 0.03 : 0);
+    body.current.rotation.z = running ? -0.03 : (!s.onGround ? -0.02 : 0);
 
     // celebration: hop and spin
     if (s.celebrate) {
       const c = t * 2.2;
-      root.current.position.y = Math.abs(Math.sin(c * 2)) * 0.6;
+      root.current.position.y = Math.abs(Math.sin(c * 2)) * 0.35;
       turn.current.rotation.y = a.yaw + (Math.floor(c / Math.PI) % 2 ? Math.sin(c) * Math.PI : 0);
-      legL.current.rotation.z = 0.3 * Math.sin(c * 4);
-      legR.current.rotation.z = -0.3 * Math.sin(c * 4);
+      legL.current.rotation.z = 0.15 * Math.sin(c * 4);
+      legR.current.rotation.z = -0.15 * Math.sin(c * 4);
     } else root.current.position.y = 0;
 
     // short emotes (reactions to the student, to answers and to events)
@@ -98,35 +98,35 @@ export function HeroPuppet({ state }) {
     if (!s.celebrate && k >= 0 && k < 1) {
       const fade = Math.sin(k * Math.PI);
       if (e.type === 'cheer') {
-        root.current.position.y = Math.abs(Math.sin(k * Math.PI * 3)) * 0.55;
+        root.current.position.y = Math.abs(Math.sin(k * Math.PI * 2)) * 0.28;
         turn.current.rotation.y = a.yaw + k * Math.PI * 2;
-        legL.current.rotation.z = 0.35 * Math.sin(k * 30);
-        legR.current.rotation.z = -0.35 * Math.sin(k * 30);
+        legL.current.rotation.z = 0.15 * Math.sin(k * 20);
+        legR.current.rotation.z = -0.15 * Math.sin(k * 20);
       } else if (e.type === 'hop') {
-        root.current.position.y = Math.sin(k * Math.PI) * 0.22;
+        root.current.position.y = Math.sin(k * Math.PI) * 0.12;
       } else if (e.type === 'spin') {
         turn.current.rotation.y = a.yaw + k * Math.PI * 2;
-        root.current.position.y = fade * 0.3;
+        root.current.position.y = fade * 0.15;
       } else if (e.type === 'learn') {
-        body.current.rotation.z = Math.sin(k * Math.PI * 4) * 0.08 * fade; // thoughtful nod
-        root.current.scale.y *= 1 - 0.04 * fade;
+        body.current.rotation.z = Math.sin(k * Math.PI * 2) * 0.04 * fade; // thoughtful nod
+        root.current.scale.y *= 1 - 0.02 * fade;
       } else if (e.type === 'wave') {
-        body.current.rotation.z = Math.sin(k * Math.PI * 6) * 0.14;
-        root.current.position.y = Math.abs(Math.sin(k * Math.PI * 3)) * 0.12;
+        body.current.rotation.z = Math.sin(k * Math.PI * 4) * 0.06 * fade;
+        root.current.position.y = Math.abs(Math.sin(k * Math.PI * 2)) * 0.06;
       } else if (e.type === 'sad') {
         // droop: shrink a little, lean forward, slow sway — then recover
-        root.current.scale.y *= 1 - 0.07 * fade;
-        root.current.scale.x *= 1 + 0.03 * fade;
-        body.current.rotation.z = (0.1 + Math.sin(k * Math.PI * 2) * 0.05) * fade * -(s.facing || 1);
-        legL.current.rotation.z = 0.08 * fade; legR.current.rotation.z = -0.08 * fade;
+        root.current.scale.y *= 1 - 0.04 * fade;
+        root.current.scale.x *= 1 + 0.015 * fade;
+        body.current.rotation.z = (0.05 + Math.sin(k * Math.PI * 2) * 0.02) * fade * -(s.facing || 1);
+        legL.current.rotation.z = 0.04 * fade; legR.current.rotation.z = -0.04 * fade;
       } else if (e.type === 'ouch') {
-        body.current.rotation.z = 0.28 * fade * (s.facing || 1);
+        body.current.rotation.z = 0.15 * fade * (s.facing || 1);
       }
     } else if (!s.celebrate) {
       // skid lean when she turns around while running
-      if (s.skid) body.current.rotation.z = 0.12 * (s.facing || 1);
+      if (s.skid) body.current.rotation.z = 0.06 * (s.facing || 1);
       // standing still for a while: she turns a little to look at the player
-      if ((s.idleFor || 0) > 3) turn.current.rotation.y = a.yaw + Math.sin(t * 0.8) * 0.35 * Math.min(1, (s.idleFor - 3) / 1.5);
+      if ((s.idleFor || 0) > 3) turn.current.rotation.y = a.yaw + Math.sin(t * 0.6) * 0.15 * Math.min(1, (s.idleFor - 3) / 1.5);
     }
 
     // hurt blink

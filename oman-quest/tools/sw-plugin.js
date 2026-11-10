@@ -3,6 +3,22 @@
  * the exact list of game files, so the whole game is saved on the device the
  * first time it opens and then plays with no internet.
  */
+import fs from 'node:fs';
+import path from 'node:path';
+
+/** Recorded voice clips built into the game (public/voice), so they work offline too. */
+function voiceFiles() {
+  const dir = path.resolve('public/voice');
+  if (!fs.existsSync(dir)) return [];
+  const out = [];
+  const walk = (d, rel) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => {
+    if (e.isDirectory()) walk(path.join(d, e.name), `${rel}${e.name}/`);
+    else out.push(`voice/${rel}${e.name}`);
+  });
+  walk(dir, '');
+  return out;
+}
+
 export function offlineServiceWorker() {
   return {
     name: 'oeq-offline-sw',
@@ -12,7 +28,7 @@ export function offlineServiceWorker() {
       const statics = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
         'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon.png'];
       const version = Date.now().toString(36);
-      const precache = [...new Set([...statics, ...files])];
+      const precache = [...new Set([...statics, ...files, ...voiceFiles()])];
       this.emitFile({ type: 'asset', fileName: 'sw.js', source: swSource(version, precache) });
     },
   };
