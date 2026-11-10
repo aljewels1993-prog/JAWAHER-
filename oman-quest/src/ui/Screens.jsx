@@ -5,6 +5,7 @@ import { STAGES, WORLDS } from '../data/stages.js';
 import { questionsForStage } from '../data/questions.js';
 import { BADGES, isStageUnlocked, totals, currentStage } from '../game/progress.js';
 import heroImg from '../assets/hero-full.png';
+import { useInstall } from '../game/install.js';
 
 const click = () => { initAudio(); sfx.click(); };
 
@@ -39,11 +40,38 @@ export function Welcome() {
         <div className="welcome-actions">
           <Btn className="big pulse" onClick={() => go('name')}>▶ {T.start}</Btn>
           {profiles[0] && <Btn kind="secondary" onClick={() => openProfile(profiles[0].id)}>{T.continue}: {profiles[0].name}</Btn>}
+          <InstallButton />
         </div>
         <p className="save-mode">💾 {T.playerMode[backend?.mode || 'local']}</p>
         <p className="signature" dir="ltr">✨ Created by Ms. Jawaher Alkhusaibi ✨</p>
       </div>
     </div>
+  );
+}
+
+/** "Install the game" button: system dialog on Android/Chrome, steps on iPhone/iPad. */
+export function InstallButton() {
+  const { installed, supported, install } = useInstall();
+  const T = useGame((s) => s.t)();
+  if (!supported) return null;
+  if (installed) return <span className="installed-chip">📲 {T.installed}</span>;
+  return <Btn kind="gold" className="install-btn" onClick={install}>📲 {T.install}</Btn>;
+}
+
+export function InstallHelp() {
+  const { showHelp, closeHelp, isIOS } = useInstall();
+  const T = useGame((s) => s.t)();
+  if (!showHelp) return null;
+  const steps = isIOS ? T.installIOS : T.installAndroid;
+  return (
+    <Modal title={`📲 ${T.installTitle}`} onClose={closeHelp}>
+      <div className="install-help">
+        <img src="./icons/icon-192.png" alt="" width="96" height="96" />
+        <ol>{steps.map((s) => <li key={s}>{s}</li>)}</ol>
+      </div>
+      <p className="small">✈️ {T.installOffline}</p>
+      <Btn onClick={closeHelp}>{T.close}</Btn>
+    </Modal>
   );
 }
 

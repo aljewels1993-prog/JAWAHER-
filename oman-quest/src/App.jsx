@@ -7,7 +7,7 @@ import { bindKeyboard } from './game/input.js';
 import GameScene from './scenes/GameScene.jsx';
 import MapScene from './scenes/MapScene.jsx';
 import MenuScene from './scenes/MenuScene.jsx';
-import { Welcome, NameEntry, MapPanel, Instructions, Leaderboard, Toasts, TopBar } from './ui/Screens.jsx';
+import { Welcome, NameEntry, MapPanel, Instructions, Leaderboard, Toasts, TopBar, InstallHelp } from './ui/Screens.jsx';
 import { HUD, TouchControls, PauseMenu, GameOver, Results } from './ui/HUD.jsx';
 import { QuestionPanel } from './ui/QuestionPanel.jsx';
 import { Certificate } from './ui/Certificate.jsx';
@@ -72,6 +72,7 @@ export default function App() {
           {screen === 'teacher' && <TeacherDashboard />}
           {overlay === 'instructions' && <Instructions />}
           {overlay === 'leaderboard' && <Leaderboard />}
+          <InstallHelp />
           <Toasts />
         </>
       )}
