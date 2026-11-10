@@ -283,3 +283,47 @@ input:focus { border-color: var(--turq); box-shadow: 0 0 0 4px rgba(24, 198, 180
   .certificate-screen { position: static; background: none; padding: 0; }
   .cert-img { width: 100%; box-shadow: none; border-radius: 0; }
 }
+
+/* ───────── question feedback upgrade ───────── */
+.q-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.hint-btn { background: #fff4c2; color: #7a5200; }
+.q-key { background: linear-gradient(transparent 45%, #ffe680 45%); color: inherit; padding: 0 2px; border-radius: 3px; animation: pop 0.3s; }
+.q-fill { color: #1d8a2a; text-decoration: underline wavy #8be08f; text-underline-offset: 4px; }
+.feedback.hint { background: #fffbe6; border: 2px dashed var(--gold-2); text-align: start; align-items: flex-start; }
+.streak { font-weight: 800; color: #d9480f; animation: pop 0.4s; }
+.reward-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.reward-chip { background: #fff; border-radius: 999px; padding: 3px 12px; font-weight: 800; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.1); }
+.star-pop { color: #b07a00; animation: starpop 0.7s ease-out; }
+@keyframes starpop { 0% { transform: scale(0.3) rotate(-30deg); opacity: 0; } 60% { transform: scale(1.25) rotate(8deg); } }
+.why { text-align: start; }
+
+/* ───────── hero speech bubble ───────── */
+.hero-bubble { position: absolute; left: 0; top: 0; z-index: 14; pointer-events: none; max-width: min(260px, 70vw); background: #fff; color: var(--purple); border: 3px solid var(--gold-2); border-radius: 16px; padding: 6px 12px; font-weight: 800; font-size: 0.95rem; text-align: center; box-shadow: 0 6px 16px rgba(43, 18, 92, 0.3); opacity: 0; transition: opacity 0.2s; will-change: transform; }
+.hero-bubble::after { content: ''; position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); border: 9px solid transparent; border-top-color: var(--gold-2); border-bottom: 0; }
+.hero-bubble.show { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .hero-bubble { transition: none; } }
+
+/* ───────── star rating & treasury ───────── */
+.star-rating { display: flex; gap: 4px; justify-content: center; font-size: 1.4rem; line-height: 1; }
+.star-rating span { color: #d8cfe8; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.12); }
+.star-rating span.on { color: var(--gold); text-shadow: 0 2px 0 #b9860c; animation: starpop 0.6s ease-out both; }
+.star-rating.big { font-size: 3rem; }
+.rating-box { background: #fff; border-radius: 16px; padding: 8px 14px; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.rating-list { list-style: none; margin: 0; padding: 0; text-align: start; font-weight: 700; color: #8a7f99; }
+.rating-list li.ok { color: #1d8a2a; }
+.chest-ready { font-weight: 800; color: #b07a00; margin: 0; animation: pulse 1.6s infinite; }
+.title-chip { display: inline-block; margin-inline-start: 6px; background: var(--purple); color: var(--gold); border-radius: 999px; padding: 0 8px; font-size: 0.75rem; font-weight: 800; }
+.treasury-btn { margin-top: 4px; font-size: 0.8rem; padding: 0.25em 0.7em; }
+.treasury-btn.ready { background: linear-gradient(180deg, #ffe680, var(--gold)); color: #5a3a00; animation: pulse 1.4s infinite; }
+.treasury-total { font-size: 1.6rem; font-weight: 800; color: #b07a00; text-align: center; }
+.treasury-total small { font-size: 0.85rem; color: #6b5b85; }
+.treasury-next { height: 10px; border-radius: 999px; background: #ece4ff; overflow: hidden; }
+.treasury-next div { height: 100%; background: linear-gradient(90deg, var(--turq), var(--gold)); }
+.treasury { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.treasury li { display: flex; gap: 10px; align-items: center; background: #fff; border-radius: 14px; padding: 6px 10px; border: 2px solid transparent; }
+.treasury li div { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.treasury li small { color: #6b5b85; font-weight: 700; }
+.treasury li.ready { border-color: var(--gold-2); background: #fffbe6; }
+.treasury li.locked { opacity: 0.6; }
+.treasury .t-icon { font-size: 1.6rem; }
+.treasury .t-state { color: #1d8a2a; font-weight: 800; font-size: 0.85rem; }

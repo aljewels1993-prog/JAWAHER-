@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createBackend } from '../net/backend.js';
-import { recordAnswer, completeStage, refreshBadges, isStageUnlocked, totals } from './progress.js';
+import { recordAnswer, completeStage, refreshBadges, isStageUnlocked, totals, markHintUsed, claimStarReward, stageRating } from './progress.js';
 import { applySettings, setMusicMode, sfx } from './audio.js';
 import { STRINGS } from './i18n.js';
 import { TOTAL_STAGES } from '../data/stages.js';
@@ -96,11 +96,28 @@ export const useGame = create((set, get) => ({
   closeQuestionPanel() { set({ question: null }); },
 
   /** Grade an answer, award coins (never twice) and save. */
-  async answer(questionId, chosen) {
+  async answer(questionId, chosen, opts = {}) {
     const { profile, backend } = get();
-    const r = recordAnswer(profile, questionId, chosen);
-    if (r.correct) sfx.correct(); else sfx.wrong();
+    const r = recordAnswer(profile, questionId, chosen, opts);
+    if (r.correct) { sfx.correct(); if (r.star) setTimeout(() => sfx.star(), 350); } else sfx.wrong();
     backend.logAnswer(profile, questionId, chosen, r.correct);
+    refreshBadges(profile);
+    await get().save();
+    return r;
+  },
+
+  /** The student opened a hint before answering (no Knowledge Star for this one). */
+  async requestHint(questionId) {
+    markHintUsed(get().profile, questionId);
+    await get().save();
+  },
+
+  /** Open a Star Treasury chest: bonus coins + a new title, once per milestone. */
+  async claimReward(id) {
+    const { profile } = get();
+    const r = claimStarReward(profile, id);
+    if (!r) return null;
+    sfx.fanfare();
     refreshBadges(profile);
     await get().save();
     return r;
@@ -113,7 +130,8 @@ export const useGame = create((set, get) => ({
     const badges = completeStage(profile, stageId, run);
     await get().save();
     const after = totals(get().profile);
-    set({ results: { stageId, run, badges, gained: after.score - before.score, final: stageId === TOTAL_STAGES } });
+    const ratingBefore = run.ratingBefore ?? 0;
+    set({ results: { stageId, run, badges, gained: after.score - before.score, final: stageId === TOTAL_STAGES, rating: stageRating(get().profile, stageId), ratingBefore } });
   },
 
   toast(text, kind = 'info') {

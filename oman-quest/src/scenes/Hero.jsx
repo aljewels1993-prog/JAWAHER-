@@ -29,8 +29,11 @@ function partMaterial(url) {
 
 /**
  * Props:
- *  - state: ref to { vx, vy, onGround, facing, invuln, power, celebrate, landedAt, t }
+ *  - state: ref to { vx, vy, onGround, facing, invuln, power, celebrate, landedAt, t,
+ *            skid, idleFor, emote: { type, start } }
+ *    emote types (short reactions): cheer · hop · spin · learn · wave · ouch
  */
+export const EMOTE_LENGTH = { cheer: 1.5, hop: 0.35, spin: 0.8, learn: 1.3, wave: 1.6, ouch: 0.5 };
 export function HeroPuppet({ state }) {
   const root = useRef();
   const turn = useRef();
@@ -88,6 +91,37 @@ export function HeroPuppet({ state }) {
       legL.current.rotation.z = 0.3 * Math.sin(c * 4);
       legR.current.rotation.z = -0.3 * Math.sin(c * 4);
     } else root.current.position.y = 0;
+
+    // short emotes (reactions to the student, to answers and to events)
+    const e = s.emote;
+    const k = e ? (t - e.start) / (EMOTE_LENGTH[e.type] || 1) : 2;
+    if (!s.celebrate && k >= 0 && k < 1) {
+      const fade = Math.sin(k * Math.PI);
+      if (e.type === 'cheer') {
+        root.current.position.y = Math.abs(Math.sin(k * Math.PI * 3)) * 0.55;
+        turn.current.rotation.y = a.yaw + k * Math.PI * 2;
+        legL.current.rotation.z = 0.35 * Math.sin(k * 30);
+        legR.current.rotation.z = -0.35 * Math.sin(k * 30);
+      } else if (e.type === 'hop') {
+        root.current.position.y = Math.sin(k * Math.PI) * 0.22;
+      } else if (e.type === 'spin') {
+        turn.current.rotation.y = a.yaw + k * Math.PI * 2;
+        root.current.position.y = fade * 0.3;
+      } else if (e.type === 'learn') {
+        body.current.rotation.z = Math.sin(k * Math.PI * 4) * 0.08 * fade; // thoughtful nod
+        root.current.scale.y *= 1 - 0.04 * fade;
+      } else if (e.type === 'wave') {
+        body.current.rotation.z = Math.sin(k * Math.PI * 6) * 0.14;
+        root.current.position.y = Math.abs(Math.sin(k * Math.PI * 3)) * 0.12;
+      } else if (e.type === 'ouch') {
+        body.current.rotation.z = 0.28 * fade * (s.facing || 1);
+      }
+    } else if (!s.celebrate) {
+      // skid lean when she turns around while running
+      if (s.skid) body.current.rotation.z = 0.12 * (s.facing || 1);
+      // standing still for a while: she turns a little to look at the player
+      if ((s.idleFor || 0) > 3) turn.current.rotation.y = a.yaw + Math.sin(t * 0.8) * 0.35 * Math.min(1, (s.idleFor - 3) / 1.5);
+    }
 
     // hurt blink
     root.current.visible = !(s.invuln > 0 && Math.floor(t * 14) % 2 === 0);

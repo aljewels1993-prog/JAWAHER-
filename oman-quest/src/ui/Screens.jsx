@@ -3,7 +3,7 @@ import { useGame } from '../game/store.js';
 import { initAudio, sfx } from '../game/audio.js';
 import { STAGES, WORLDS } from '../data/stages.js';
 import { questionsForStage } from '../data/questions.js';
-import { BADGES, isStageUnlocked, totals, currentStage } from '../game/progress.js';
+import { BADGES, isStageUnlocked, totals, currentStage, stageRating, rewardsReady, currentTitle, STAR_REWARDS } from '../game/progress.js';
 import heroImg from '../assets/hero-full.png';
 import { useInstall } from '../game/install.js';
 
@@ -135,8 +135,11 @@ export function MapPanel() {
       <div className="player-card">
         <img src={heroImg} alt="" />
         <div>
-          <b>{profile.name}</b>
+          <b>{profile.name}</b>{currentTitle(profile) && <span className="title-chip">{currentTitle(profile).icon} {ar ? currentTitle(profile).ar : currentTitle(profile).en}</span>}
           <div className="stats"><span>🪙 {tt.coins}</span><span>⭐ {tt.stars}</span><span>📘 {tt.questionsDone}/50</span><span>🏁 {tt.stagesCompleted}/10</span></div>
+          <Btn kind="chip" className={`treasury-btn ${rewardsReady(profile).length ? 'ready' : ''}`} onClick={() => useGame.getState().setOverlay('treasury')}>
+            🎁 {T.treasury}{rewardsReady(profile).length ? ` (${rewardsReady(profile).length})` : ''}
+          </Btn>
           <div className="badges">{profile.badges.map((b) => { const d = BADGES.find((x) => x.id === b); return d ? <span key={b} title={ar ? d.ar : d.en}>{d.icon}</span> : null; })}</div>
         </div>
         <Btn kind="ghost" className="switch" onClick={logout}>⇄</Btn>
@@ -169,6 +172,7 @@ export function MapPanel() {
           <small>📍 {ar ? st.governorateAr : st.governorate}{st.id === 10 ? ' · 🕰️ برج الصحوة' : ''}</small>
         </div>
         <div className="topics">{topics.map((x) => <span key={x}>{x}</span>)}</div>
+        {rec && <StarRating n={stageRating(profile, st.id).stars} />}
         {rec && <div className="stage-best">🪙 {rec.bestCoins} · ⭐ {rec.bestStars} · 📘 {qDone}/5</div>}
         {unlocked ? (
           <Btn className="big" onClick={() => playStage(st.id)}>{rec?.completed ? `↻ ${T.replay}` : `▶ ${T.play}`}</Btn>
@@ -176,6 +180,49 @@ export function MapPanel() {
         {profile.finishedAt && <Btn kind="gold" onClick={() => go('certificate')}>📜 {T.certificate}</Btn>}
       </div>
     </div>
+  );
+}
+
+/** Three-star stage rating. */
+export function StarRating({ n, big = false }) {
+  return (
+    <div className={`star-rating ${big ? 'big' : ''}`} aria-label={`${n} / 3`}>
+      {[1, 2, 3].map((i) => <span key={i} className={i <= n ? 'on' : ''} style={{ animationDelay: `${i * 0.25}s` }}>★</span>)}
+    </div>
+  );
+}
+
+/** Star Treasury: milestone chests (bonus coins + titles) unlocked by total stars. */
+export function StarTreasury() {
+  const { t, lang, profile, setOverlay, claimReward, toast } = useGame();
+  const T = t();
+  if (!profile) return null;
+  const tt = totals(profile);
+  const claimed = profile.starRewards || [];
+  const next = STAR_REWARDS.find((r) => tt.stars < r.stars);
+  const open = async (r) => {
+    const got = await claimReward(r.id);
+    if (got) toast(T.chestOpened(got.coins, lang === 'ar' ? got.ar : got.en), 'star');
+  };
+  return (
+    <Modal title={`🎁 ${T.treasury}`} onClose={() => setOverlay(null)}>
+      <p className="small">{T.treasuryInfo}</p>
+      <div className="treasury-total">⭐ {tt.stars} <small>({T.starsFrom(tt.collectedStars, tt.knowledgeStars)})</small></div>
+      {next && <div className="treasury-next"><div style={{ width: `${Math.min(100, (tt.stars / next.stars) * 100)}%` }} /></div>}
+      <ul className="treasury">
+        {STAR_REWARDS.map((r) => {
+          const done = claimed.includes(r.id);
+          const ready = !done && tt.stars >= r.stars;
+          return (
+            <li key={r.id} className={done ? 'done' : ready ? 'ready' : 'locked'}>
+              <span className="t-icon">{done ? r.icon : ready ? '🎁' : '🔒'}</span>
+              <div><b>{lang === 'ar' ? r.ar : r.en}</b><small>⭐ {T.starsNeeded(r.stars)} · 🪙 +{r.coins}</small></div>
+              {ready ? <Btn kind="gold" onClick={() => open(r)}>{T.open}</Btn> : <span className="t-state">{done ? `✓ ${T.opened}` : ''}</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </Modal>
   );
 }
 

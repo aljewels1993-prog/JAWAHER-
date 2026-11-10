@@ -8,6 +8,7 @@ export const TUNING = {
     height: 1.7,
     runSpeed: 7.2,
     accelGround: 55,
+    turnBoost: 2.2, // extra grip when reversing direction, so turns feel snappy
     accelAir: 32,
     friction: 48,
     gravity: 40,

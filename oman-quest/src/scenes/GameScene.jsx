@@ -105,7 +105,23 @@ export default function GameScene() {
   const victoryT = useRef(-1);
   const hudTimer = useRef(0);
   const shadow = useRef();
+  const emote = useRef(null); // { type, start } in clock seconds
+  const idle = useRef(0);
+  const bubble = useRef({ text: '', until: 0, nextGuide: 6 });
+  const bubbleEl = useRef(null);
+  const clockRef = useRef(0);
   const { camera, size } = useThree();
+
+  /** Make the hero react: a short animation plus an optional speech bubble. */
+  const react = (type, text, secs = 2.2) => {
+    if (type) emote.current = { type, start: clockRef.current };
+    if (text) bubble.current = { ...bubble.current, text, until: clockRef.current + secs };
+    idle.current = 0;
+  };
+  const say = (key, ...args) => {
+    const b = useGame.getState().t().bubble[key];
+    return typeof b === 'function' ? b(...args) : b;
+  };
 
   // fresh world for each run
   if (!world.current || world.current.runKey !== runKey) {
@@ -117,6 +133,8 @@ export default function GameScene() {
 
   useEffect(() => {
     celebrate.current = false; flagRaise.current = 0; victoryT.current = -1;
+    emote.current = null; idle.current = 0;
+    bubble.current = { text: say('start'), until: 2.5, nextGuide: 6 };
     const w = world.current;
     const aspect = size.width / size.height;
     camera.position.set(w.player.x + 2, w.player.y + TUNING.camera.height, TUNING.camera.distance * (aspect < 1 ? Math.max(1, 0.95 / aspect) : 1));
@@ -129,6 +147,13 @@ export default function GameScene() {
     const w = world.current;
     const G = useGame.getState();
     const paused = G.overlay === 'pause' || G.question || G.results || G.gameOver;
+    clockRef.current = state.clock.elapsedTime;
+    // reaction after a grammar question closes
+    if (session.heroReaction && !G.question) {
+      const r = session.heroReaction; session.heroReaction = null;
+      react(r.type, r.text, 2.6);
+      if (r.type === 'cheer') fx.current?.burst(w.player.x, w.player.y + 2.2, 0.5, { n: 30, colors: ['#ffd34d', '#5ff2df', '#c79bff'], speed: 4, life: 0.9, size: 0.4 });
+    }
 
     if (!paused && (w.status === 'playing')) {
       const ev = step(w, dt, input);
@@ -141,15 +166,36 @@ export default function GameScene() {
       if (victoryT.current < 0) { victoryT.current = 0; celebrate.current = true; sfx.fanfare(); G.toast('🎆 برج الصحوة! 🎆', 'win'); }
       victoryT.current += dt;
       flagRaise.current = Math.min(1, victoryT.current / 3);
-      if (victoryT.current > 5.5 && !G.results) G.finishStage({ coins: w.stats.coins, stars: w.stats.stars, secret: w.secretFound });
+      if (victoryT.current > 5.5 && !G.results) G.finishStage({ coins: w.stats.coins, stars: w.stats.stars, secret: w.secretFound, totalStars: level.totalStars });
     }
 
     // hero puppet
     const p = w.player;
+    // idle time (no input, standing) drives the "look at the player" pose and guidance
+    const active = input.left || input.right || input.jump || !p.onGround;
+    idle.current = active || paused ? 0 : idle.current + dt;
+    if (!paused && w.status === 'playing' && idle.current > 5 && clockRef.current > bubble.current.nextGuide) {
+      react('wave', guideText(w, level, say), 3);
+      bubble.current.nextGuide = clockRef.current + 9;
+    }
     heroState.current = {
       vx: p.vx, vy: p.vy, onGround: p.onGround, facing: p.facing, invuln: p.invuln,
       power: p.power?.type, celebrate: celebrate.current, landedAt: p.landedAt, t: w.t,
+      skid: p.onGround && Math.abs(p.vx) > 1.5 && Math.sign(p.vx) !== p.facing,
+      idleFor: idle.current, emote: emote.current,
     };
+    // speech bubble above her head (a DOM element positioned from 3D)
+    if (!bubbleEl.current) bubbleEl.current = document.getElementById('hero-bubble');
+    const el = bubbleEl.current;
+    if (el) {
+      const show = clockRef.current < bubble.current.until && !paused && w.status === 'playing';
+      if (show) {
+        const v = new THREE.Vector3(p.x, p.y + 2.55, 0.3).project(camera);
+        el.style.transform = `translate(${((v.x + 1) / 2) * size.width}px, ${((1 - v.y) / 2) * size.height}px) translate(-50%, -100%)`;
+        if (el.textContent !== bubble.current.text) el.textContent = bubble.current.text;
+      }
+      el.classList.toggle('show', show);
+    }
     if (hero.current) hero.current.position.set(p.x, p.y, 0.3);
     if (shadow.current) {
       const top = groundBelow(w, p);
@@ -191,11 +237,22 @@ export default function GameScene() {
           progress: progressOf(w), power: p.power?.type || null, powerT: p.power ? p.power.t / p.power.total : 0,
           onPipe: !!pipeUnder(w)?.target, runCoins: w.stats.coins, runStars: w.stats.stars,
           questionsDone: level.grammar.filter((g) => w.answered.has(g.questionId)).length,
+          stageStars: w.stats.stars, stageStarsTotal: level.totalStars,
           gateOpen: gateOpen(w),
         });
       }
     }
   });
+
+  /** The student taps / clicks the hero: she hops, waves and says something useful. */
+  function tapHero() {
+    const w = world.current;
+    if (w.status !== 'playing') return;
+    sfx.click();
+    const lines = useGame.getState().t().bubble.tap;
+    const guide = Math.random() < 0.5;
+    react(guide ? 'wave' : 'cheer', guide ? guideText(w, level, say) : pick(lines), 2.4);
+  }
 
   function handleEvent(e, w, G) {
     const p = w.player;
@@ -203,27 +260,27 @@ export default function GameScene() {
     switch (e.type) {
       case 'jump': e.double ? sfx.doubleJump() : sfx.jump(); if (e.double) f?.burst(p.x, p.y + 0.3, 0.3, { n: 12, colors: ['#ff4d4d', '#ffd34d'], speed: 3, gravity: 2 }); break;
       case 'land': if (p.vy === 0) f?.burst(p.x, p.y + 0.05, 0.4, { n: 6, colors: ['#e8d8b8'], speed: 1.5, life: 0.35, size: 0.25, gravity: 1 }); break;
-      case 'coin': sfx.coin(); f?.burst(e.x, e.y, 0.2, { n: 10, colors: ['#ffd34d', '#fff2a0'], speed: 3, life: 0.5, size: 0.3 }); break;
-      case 'star': sfx.star(); f?.burst(e.x, e.y, 0.2, { n: 30, colors: ['#ffd34d', '#ffffff', '#ff9d2e'], speed: 5, life: 0.8, size: 0.45 }); G.toast(`⭐ ${pick(G.t().motivation)}`, 'star'); break;
+      case 'coin': sfx.coin(); if (!emote.current || clockRef.current - emote.current.start > 0.8) react('hop'); f?.burst(e.x, e.y, 0.2, { n: 10, colors: ['#ffd34d', '#fff2a0'], speed: 3, life: 0.5, size: 0.3 }); break;
+      case 'star': sfx.star(); f?.burst(e.x, e.y, 0.2, { n: 30, colors: ['#ffd34d', '#ffffff', '#ff9d2e'], speed: 5, life: 0.8, size: 0.45 }); react('spin', w.stats.stars >= level.totalStars ? say('allStars') : say('star', w.stats.stars, level.totalStars)); break;
       case 'bump': sfx.bump(); break;
       case 'reveal': sfx.reveal(); break;
-      case 'power': sfx.power(); G.toast(e.power === 'jump' ? `🍄 ${G.t().powerJump}` : `🛡️ ${G.t().powerShield}`, 'power'); break;
+      case 'power': sfx.power(); react('spin', say('power')); G.toast(e.power === 'jump' ? `🍄 ${G.t().powerJump}` : `🛡️ ${G.t().powerShield}`, 'power'); break;
       case 'powerEnd': sfx.powerEnd(); break;
       case 'stomp': sfx.stomp(); f?.burst(e.x, e.y + 0.4, 0.3, { n: 14, colors: ['#ffffff', '#c9a26b'], speed: 3, life: 0.5 }); break;
-      case 'hurt': case 'fall': sfx.hurt(); break;
+      case 'hurt': case 'fall': sfx.hurt(); react('ouch', say('ouch'), 1.2); break;
       case 'gameover': G.setGameOver(true); break;
-      case 'checkpoint': sfx.checkpoint(); G.toast(`🚩 ${G.t().checkpoint}`, 'info'); break;
+      case 'checkpoint': sfx.checkpoint(); react('wave', say('checkpoint')); break;
       case 'pipe':
         sfx.pipe();
         if (e.into === 'secret') { w.secretFound = true; G.toast(`🗝️ ${G.t().secretFound}`, 'star'); }
         camera.position.set(p.x, p.y + 3, camera.position.z);
         break;
       case 'question': sfx.reveal(); G.openQuestion(e.questionId); break;
-      case 'gateLocked': sfx.locked(); G.toast(`🔒 ${(level.final ? G.t().towerLocked : G.t().gateLocked)(e.remaining)}`, 'warn'); break;
+      case 'gateLocked': sfx.locked(); react('learn', say('locked'), 2.5); G.toast(`🔒 ${(level.final ? G.t().towerLocked : G.t().gateLocked)(e.remaining)}`, 'warn'); break;
       case 'finished':
         sfx.fanfare(); celebrate.current = true;
         f?.burst(p.x, p.y + 2, 0.5, { n: 60, colors: ['#ffd34d', '#5ff2df', '#ffffff'], speed: 6, life: 1.2 });
-        setTimeout(() => useGame.getState().finishStage({ coins: w.stats.coins, stars: w.stats.stars, secret: w.secretFound }), 1400);
+        setTimeout(() => useGame.getState().finishStage({ coins: w.stats.coins, stars: w.stats.stars, secret: w.secretFound, totalStars: level.totalStars }), 1400);
         break;
       default: break;
     }
@@ -270,7 +327,7 @@ export default function GameScene() {
           <OrbitingStars center={towerCenter} active={celebrate} />
         </>
       )}
-      <group ref={hero}><HeroPuppet state={heroState} /></group>
+      <group ref={hero} onClick={(e) => { e.stopPropagation(); tapHero(); }}><HeroPuppet state={heroState} /></group>
       <mesh ref={shadow} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.5, 24]} />
         <meshBasicMaterial color="#000" transparent opacity={0.25} depthWrite={false} />
@@ -281,6 +338,15 @@ export default function GameScene() {
 }
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+/** What the hero suggests next: where the next grammar block is, or that the gate is open. */
+function guideText(w, level, say) {
+  const p = w.player;
+  const left = level.grammar.filter((g) => !w.answered.has(g.questionId));
+  if (left.length === 0) return say('gateOpen');
+  if (left.some((g) => g.x < p.x - 2) && !left.some((g) => g.x >= p.x - 2)) return say('behind');
+  return say('ahead', left.length);
+}
 
 /** Height of the highest surface under the player (for the blob shadow). */
 function groundBelow(w, p) {
