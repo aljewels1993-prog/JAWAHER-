@@ -145,7 +145,7 @@ export default function GameScene() {
     celebrate.current = false; flagRaise.current = 0; victoryT.current = -1;
     emote.current = null; idle.current = 0;
     bubble.current = { text: '', until: 0, nextGuide: 6 };
-    setTimeout(() => talk('start'), 900);
+
     const w = world.current;
     const aspect = size.width / size.height;
     camera.position.set(w.player.x + 2, w.player.y + TUNING.camera.height, TUNING.camera.distance * (aspect < 1 ? Math.max(1, 0.95 / aspect) : 1));
@@ -162,7 +162,7 @@ export default function GameScene() {
     // reaction after a grammar question closes
     if (session.heroReaction && !G.question) {
       const r = session.heroReaction; session.heroReaction = null;
-      react(r.type, r.text, 2.6, r.mood); // she already spoke inside the question panel
+      react(r.type, r.text || null, 2.6, r.mood); // bubble only if she spoke in the panel
       if (r.type === 'cheer') fx.current?.burst(w.player.x, w.player.y + 2.2, 0.5, { n: 30, colors: ['#ffd34d', '#5ff2df', '#c79bff'], speed: 4, life: 0.9, size: 0.4 });
     }
 
@@ -185,9 +185,9 @@ export default function GameScene() {
     // idle time (no input, standing) drives the "look at the player" pose and guidance
     const active = input.left || input.right || input.jump || !p.onGround;
     idle.current = active || paused ? 0 : idle.current + dt;
-    if (!paused && w.status === 'playing' && idle.current > 5 && clockRef.current > bubble.current.nextGuide) {
+    if (!paused && w.status === 'playing' && idle.current > 8 && clockRef.current > bubble.current.nextGuide) {
       talk({ ...guideLine(w, level), mood: 'calm' }, 0, { emote: 'wave', secs: 3.2 });
-      bubble.current.nextGuide = clockRef.current + 9;
+      bubble.current.nextGuide = clockRef.current + 30;
     }
     heroState.current = {
       vx: p.vx, vy: p.vy, onGround: p.onGround, facing: p.facing, invuln: p.invuln,
@@ -273,28 +273,28 @@ export default function GameScene() {
       case 'land': if (p.vy === 0) f?.burst(p.x, p.y + 0.05, 0.4, { n: 6, colors: ['#e8d8b8'], speed: 1.5, life: 0.35, size: 0.25, gravity: 1 }); break;
       case 'coin': sfx.coin(); if (!emote.current || clockRef.current - emote.current.start > 0.8) react('hop');
         coinCount.current += 1;
-        if (coinCount.current % 8 === 0) talk('coin', 0, { emote: 'hop', secs: 1.4 }); f?.burst(e.x, e.y, 0.2, { n: 10, colors: ['#ffd34d', '#fff2a0'], speed: 3, life: 0.5, size: 0.3 }); break;
-      case 'star': sfx.star(); f?.burst(e.x, e.y, 0.2, { n: 30, colors: ['#ffd34d', '#ffffff', '#ff9d2e'], speed: 5, life: 0.8, size: 0.45 }); if (w.stats.stars >= level.totalStars) talk('allStars', 0, { emote: 'spin' });
-        else { const ln = line('star'); talk({ ...ln, en: `${ln.en} ${w.stats.stars}/${level.totalStars}`, ar: `${ln.ar} ${w.stats.stars}/${level.totalStars}` }, 0, { emote: 'spin' }); }
+        f?.burst(e.x, e.y, 0.2, { n: 10, colors: ['#ffd34d', '#fff2a0'], speed: 3, life: 0.5, size: 0.3 }); break;
+      case 'star': sfx.star(); f?.burst(e.x, e.y, 0.2, { n: 30, colors: ['#ffd34d', '#ffffff', '#ff9d2e'], speed: 5, life: 0.8, size: 0.45 }); if (w.stats.stars >= level.totalStars) talk('allStars', 0, { emote: 'spin' }); // special moment only
+        else react('spin');
         break;
       case 'bump': sfx.bump(); break;
       case 'reveal': sfx.reveal(); break;
-      case 'power': sfx.power(); talk('power', 0, { emote: 'spin' }); G.toast(e.power === 'jump' ? `🍄 ${G.t().powerJump}` : `🛡️ ${G.t().powerShield}`, 'power'); break;
+      case 'power': sfx.power(); react('spin'); G.toast(e.power === 'jump' ? `🍄 ${G.t().powerJump}` : `🛡️ ${G.t().powerShield}`, 'power'); break;
       case 'powerEnd': sfx.powerEnd(); break;
       case 'stomp': sfx.stomp(); f?.burst(e.x, e.y + 0.4, 0.3, { n: 14, colors: ['#ffffff', '#c9a26b'], speed: 3, life: 0.5 }); break;
-      case 'hurt': sfx.hurt(); talk('hurt', 0, { emote: 'ouch', secs: 1.6 }); break;
-      case 'fall': sfx.hurt(); talk('fall', 0, { emote: 'sad', secs: 1.8 }); break;
-      case 'gameover': G.setGameOver(true); talk('gameover'); break;
-      case 'checkpoint': sfx.checkpoint(); talk('checkpoint', 0, { emote: 'wave' }); break;
+      case 'hurt': sfx.hurt(); react('ouch'); break;
+      case 'fall': sfx.hurt(); react('sad'); break;
+      case 'gameover': G.setGameOver(true); break;
+      case 'checkpoint': sfx.checkpoint(); react('wave'); break;
       case 'pipe':
         sfx.pipe();
         if (e.into === 'secret') { w.secretFound = true; G.toast(`🗝️ ${G.t().secretFound}`, 'star'); }
         camera.position.set(p.x, p.y + 3, camera.position.z);
         break;
       case 'question': sfx.reveal(); G.openQuestion(e.questionId); break;
-      case 'gateLocked': sfx.locked(); talk('locked', 0, { secs: 3 }); G.toast(`🔒 ${(level.final ? G.t().towerLocked : G.t().gateLocked)(e.remaining)}`, 'warn'); break;
+      case 'gateLocked': sfx.locked(); react('learn'); G.toast(`🔒 ${(level.final ? G.t().towerLocked : G.t().gateLocked)(e.remaining)}`, 'warn'); break;
       case 'finished':
-        sfx.fanfare(); celebrate.current = true; talk('finish', 0, { emote: 'cheer' });
+        sfx.fanfare(); celebrate.current = true;
         f?.burst(p.x, p.y + 2, 0.5, { n: 60, colors: ['#ffd34d', '#5ff2df', '#ffffff'], speed: 6, life: 1.2 });
         setTimeout(() => useGame.getState().finishStage({ coins: w.stats.coins, stars: w.stats.stars, secret: w.secretFound, totalStars: level.totalStars }), 1400);
         break;
