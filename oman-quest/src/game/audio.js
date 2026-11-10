@@ -97,8 +97,6 @@ export const sfx = {
   correct() { const t = now(); [72, 76, 79, 84].forEach((n, i) => tone(N(n), t + i * 0.08, 0.25, { type: 'triangle', vol: 0.28 })); },
   wrong() { const t = now(); tone(N(57), t, 0.18, { type: 'triangle', vol: 0.18 }); tone(N(53), t + 0.16, 0.3, { type: 'triangle', vol: 0.18 }); },
   locked() { const t = now(); tone(N(60), t, 0.12, { type: 'square', vol: 0.08 }); tone(N(60), t + 0.15, 0.12, { type: 'square', vol: 0.08 }); },
-  happy() { const t = now(); [76, 81, 84, 88].forEach((n, i) => tone(N(n), t + i * 0.06, 0.14, { type: 'sine', vol: 0.16 })); },
-  sad() { const t = now(); tone(N(67), t, 0.35, { type: 'triangle', vol: 0.14, slide: N(62) }); tone(N(62), t + 0.3, 0.5, { type: 'triangle', vol: 0.12, slide: N(57) }); },
   firework() { noise(now(), 0.5, 0.25, 900 + Math.random() * 1200); },
   fanfare() {
     const t = now();
@@ -125,6 +123,7 @@ function startMusic() {
   if (musicTimer || !ctx) return;
   nextNoteTime = ctx.currentTime + 0.1;
   musicTimer = setInterval(() => {
+    if (ctx.state !== 'running') { resumeAudio(); nextNoteTime = ctx.currentTime + 0.05; return; }
     const bpm = mode === 'menu' ? 92 : mode === 'victory' ? 132 : 120;
     const stepDur = 60 / bpm / 2;
     while (nextNoteTime < ctx.currentTime + 0.25) {
@@ -167,49 +166,63 @@ export function speak(text, rate = 0.9) {
 }
 
 // ───────────────────────────── the hero's voice ─────────────────────────────
-// How she sounds in each mood (pitch 0–2, rate 0.1–10).
+// A little girl's voice: a gently raised pitch at a calm, natural speed.
+// (Too high or too fast sounds like a cartoon; these values stay realistic.)
 const MOOD_VOICE = {
-  happy: { pitch: 1.55, rate: 1.08 },
-  excited: { pitch: 1.75, rate: 1.18 },
-  sad: { pitch: 0.75, rate: 0.82 },
-  calm: { pitch: 1.2, rate: 0.95 },
+  happy: { pitch: 1.35, rate: 0.95 }, // bright and cheerful
+  sad: { pitch: 1.15, rate: 0.82 }, // softer, slower, a little down
 };
-let lastHeroLine = 0;
+
+// Child voices first, then female voices, by name (devices name them differently).
+const CHILD_OR_GIRL = {
+  en: [/\bana\b/i, /junior/i, /\bkid|child/i, /samantha/i, /karen/i, /tessa/i, /moira/i, /fiona/i, /serena/i, /victoria/i, /jenny|aria|zira|susan|hazel|libby|sonia|emma/i, /google uk english female/i, /female/i],
+  ar: [/laila|layla/i, /mariam|maryam/i, /zariyah/i, /hoda/i, /salma|amira|amina|fatima|lana|sana|rana/i, /female|أنثى/i],
+};
+const MALE = /\b(maged|majed|tarik|naayf|hamed|shakir|daniel|alex|fred|tom|aaron|arthur|male|rishi|oliver|thomas|david|mark|george|guy|ryan)\b/i;
 
 function voiceFor(lang) {
   if (typeof speechSynthesis === 'undefined') return null;
-  const vs = speechSynthesis.getVoices();
-  if (lang === 'ar') return vs.find((v) => v.lang?.toLowerCase().startsWith('ar')) || null;
-  const en = vs.filter((v) => v.lang?.startsWith('en'));
-  // prefer a female-sounding voice where the name tells us
-  return en.find((v) => /female|samantha|karen|serena|moira|tessa|fiona|victoria|zira|susan|google uk english female/i.test(v.name)) || en.find((v) => v.lang === 'en-GB') || en[0] || null;
+  const all = speechSynthesis.getVoices().filter((v) => v.lang?.toLowerCase().startsWith(lang));
+  if (!all.length) return null;
+  for (const re of CHILD_OR_GIRL[lang]) {
+    const v = all.find((x) => re.test(x.name) && !MALE.test(x.name));
+    if (v) return v;
+  }
+  return all.find((v) => !MALE.test(v.name)) || all[0];
+}
+
+/** iPhone/iPad Safari can pause the game's music when speech plays — bring it back. */
+export function resumeAudio() {
+  if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume().catch(() => {});
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) resumeAudio(); });
 }
 
 /**
- * The hero says a line out loud, sounding happy, excited, sad or calm.
+ * The hero says a line out loud — only used after a right or wrong answer.
  * `ln` = { en, ar, mood } from lines.js. Arabic is used when the game is in
  * Arabic and the device has an Arabic voice; otherwise English.
- * `important` lines interrupt; small ones (coins) are skipped while she talks.
  */
-export function heroSay(ln, lang = 'en', { important = true } = {}) {
+export function heroSay(ln, lang = 'en') {
   if (settings.muted || !settings.voice || typeof speechSynthesis === 'undefined' || !ln) return;
   try {
-    const nowMs = Date.now();
-    if (!important && (speechSynthesis.speaking || nowMs - lastHeroLine < 2500)) return;
-    lastHeroLine = nowMs;
     const arVoice = lang === 'ar' ? voiceFor('ar') : null;
     const useAr = lang === 'ar' && arVoice;
-    const text = (useAr ? ln.ar : ln.en).replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '');
+    const text = (useAr ? ln.ar : ln.en).replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/…/g, ', ');
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     const v = useAr ? arVoice : voiceFor('en');
-    if (v) u.voice = v;
+    try { if (v) u.voice = v; } catch { /* keep the default voice */ }
+    u.voiceName = v?.name || ''; // for testing which voice was chosen
     u.lang = useAr ? (v?.lang || 'ar-SA') : (v?.lang || 'en-GB');
-    const m = MOOD_VOICE[ln.mood] || MOOD_VOICE.calm;
+    const m = ln.mood === 'sad' ? MOOD_VOICE.sad : MOOD_VOICE.happy;
     u.pitch = m.pitch;
     u.rate = m.rate;
-    u.volume = Math.max(0.3, settings.sfx);
-    if (ln.mood === 'sad') sfx.sad(); else if (ln.mood !== 'calm') sfx.happy();
+    u.volume = 1;
+    u.onend = resumeAudio;
+    u.onerror = resumeAudio;
     speechSynthesis.speak(u);
+    setTimeout(resumeAudio, 400);
   } catch { /* speech not available */ }
 }
