@@ -137,3 +137,17 @@ export function line(kind, n) {
   const [en, ar] = list[i].map((s) => s.replace('%n', String(n ?? '')));
   return { en, ar, mood: group.mood };
 }
+
+/**
+ * Pacing, so encouragement stays special instead of appearing every time:
+ * she speaks after roughly one answer in three, and always on streak
+ * milestones (5 and 10 in a row).
+ */
+export const ENCOURAGE_EVERY = 3;
+const pace = { since: 0 };
+export function encourageNow({ streak = 0 } = {}) {
+  pace.since += 1;
+  if ([5, 10].includes(streak) || pace.since >= ENCOURAGE_EVERY) { pace.since = 0; return true; }
+  return false;
+}
+export function resetEncouragePace() { pace.since = 0; }

@@ -5,7 +5,7 @@ import { completeQuestion, closeQuestion } from '../game/sim.js';
 import { session } from '../game/session.js';
 import { releaseAll } from '../game/input.js';
 import { speak, sfx, heroSay } from '../game/audio.js';
-import { line } from '../game/lines.js';
+import { line, encourageNow } from '../game/lines.js';
 import heroImg from '../assets/hero-full.png';
 import { Btn } from './Screens.jsx';
 
@@ -61,7 +61,6 @@ export function QuestionPanel() {
   const openHint = async () => {
     sfx.click();
     if (hintLevel === 0 && !alreadyTried) await requestHint(q.id);
-    if (hintLevel === 0) talk(line('hint'), { voice: false });
     setHintLevel((h) => Math.min(2, h + 1));
   };
 
@@ -71,15 +70,16 @@ export function QuestionPanel() {
     const r = await answer(q.id, i, { usedHint: hintLevel > 0 });
     setBusy(false);
     if (r.correct) {
-      talk(r.streak >= 3 ? line('streak', r.streak) : line('correct'));
+      if (encourageNow({ streak: r.streak })) talk([5, 10].includes(r.streak) ? line('streak', r.streak) : line('correct'));
+      else setSaid(null);
       setResult({ ...r, chosen: i });
-      if (r.reward) toast(`🪙 ${T.plusCoins}!`, 'coin');
-      if (r.star) setTimeout(() => toast(T.knowledgeStar, 'star'), 400);
     } else if (r.revealed) {
-      talk({ ...line('reveal'), mood: 'sad' }); // second wrong answer: soft, gentle voice
+      if (encourageNow()) talk({ ...line('reveal'), mood: 'sad' }); // soft, gentle voice
+      else setSaid(null);
       setResult({ ...r, chosen: i });
     } else {
-      talk(line('wrong'));
+      if (encourageNow()) talk(line('wrong'));
+      else setSaid(null);
       setDisabled((d) => [...d, i]);
       setHintLevel(2); // after a mistake: show the clue and the key words, never the answer
       setResult({ ...r, chosen: i, retry: true });
@@ -89,8 +89,8 @@ export function QuestionPanel() {
   const finish = () => {
     sfx.click();
     // Tell the hero how it went so she can react in the level.
-    const ln = said || line(result?.correct ? 'correct' : 'reveal');
-    session.heroReaction = { type: result?.correct ? 'cheer' : 'learn', text: lang === 'ar' ? ln.ar : ln.en, mood: ln.mood };
+    // In the level she only moves (cheer / nod); a bubble only if she spoke here.
+    session.heroReaction = { type: result?.correct ? 'cheer' : 'learn', text: said ? (lang === 'ar' ? said.ar : said.en) : '', mood: said?.mood };
     if (session.world) completeQuestion(session.world, q.id);
     closeQuestionPanel();
   };
@@ -137,7 +137,7 @@ export function QuestionPanel() {
         </div>
         {result?.correct && (
           <div className="feedback success">
-            <HeroSays ln={said} lang={lang} />
+            {said ? <HeroSays ln={said} lang={lang} /> : <div className="fb-title">✓ {T.correctTitle}</div>}
             {result.streak >= 2 && <div className="streak">{T.streak(result.streak)}</div>}
             <div className="reward-row">
               {result.reward ? <span className="reward-chip coin-rain">🪙 {T.plusCoins}</span> : null}

@@ -30,3 +30,19 @@ describe('hero lines', () => {
     expect(line('streak', 4).en).toContain('4');
   });
 });
+
+import { encourageNow, resetEncouragePace } from '../src/game/lines.js';
+describe('encouragement pacing', () => {
+  it('appears about once every three answers, not every time', () => {
+    resetEncouragePace();
+    const shown = Array.from({ length: 9 }, () => encourageNow());
+    expect(shown.filter(Boolean)).toHaveLength(3);
+    expect(shown.slice(0, 3)).toEqual([false, false, true]);
+  });
+  it('always celebrates streak milestones', () => {
+    resetEncouragePace();
+    expect(encourageNow({ streak: 5 })).toBe(true);
+    expect(encourageNow({ streak: 10 })).toBe(true);
+    expect(encourageNow({ streak: 3 })).toBe(false);
+  });
+});
