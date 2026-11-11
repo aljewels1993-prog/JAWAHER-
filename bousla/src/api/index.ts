@@ -1,13 +1,20 @@
 import type { Api } from './types';
 import { createSupabaseApi } from './supabaseApi';
 import { createDeviceApi } from './deviceApi';
+import { isBrowserSafeKey } from './keys';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 // The publishable key (sb_publishable_…) is meant for browsers. The legacy anon key also works.
 const key = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY) as string | undefined;
 
 /** Cloud when Supabase is configured at build time; otherwise device-only mode. */
-export const cloudConfigured = !!(url && key && url.startsWith('https://') && !key.includes('your-key'));
+const keyIsSafe = !!key && isBrowserSafeKey(key);
+if (key && !keyIsSafe && !key.includes('your-key')) {
+  // Never run with a secret key in the browser — it would bypass all data protection.
+  console.error('BOUSLA: the Supabase key in the settings is not a publishable key. Use the Publishable key, never the secret key.');
+}
+
+export const cloudConfigured = !!(url && keyIsSafe && url.startsWith('https://'));
 
 /** localStorage, or an in-memory store where the browser blocks it. */
 function safeStorage(): Storage {

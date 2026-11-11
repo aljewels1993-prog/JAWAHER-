@@ -358,6 +358,7 @@ export const en = {
   'error.too_many_attempts': 'Too many wrong codes. Please try again in 15 minutes.',
   'error.invalid_grade': 'Please choose a grade from 1 to 12.',
   'error.name_taken': 'Another student in this grade already uses this name. Add your family name.',
+  'error.bad_key': 'The app cannot connect: its Supabase key is not valid. Ask the app admin to check VITE_SUPABASE_PUBLISHABLE_KEY.',
   'error.anon_disabled': 'Sign-in is not switched on in the server yet. Ask the app admin to enable anonymous sign-ins in Supabase.',
   'profile.grade': 'Grade',
   'profile.teacherNote': 'Signed in with the teacher code on this device.',

@@ -360,6 +360,7 @@ export const ar: Dict = {
   'error.too_many_attempts': 'محاولات خاطئة كثيرة. حاول/ي مرة أخرى بعد 15 دقيقة.',
   'error.invalid_grade': 'يرجى اختيار صف من 1 إلى 12.',
   'error.name_taken': 'يوجد طالب آخر في هذا الصف بالاسم نفسه. أضف/ي اسم العائلة.',
+  'error.bad_key': 'تعذّر الاتصال: مفتاح Supabase في إعدادات التطبيق غير صحيح. اطلب/ي من مسؤول التطبيق التحقق من VITE_SUPABASE_PUBLISHABLE_KEY.',
   'error.anon_disabled': 'الدخول غير مفعّل في الخادم بعد. اطلب/ي من مسؤول التطبيق تفعيل الدخول المجهول (Anonymous) في Supabase.',
   'profile.grade': 'الصف',
   'profile.teacherNote': 'تم الدخول برمز المعلم على هذا الجهاز.',

@@ -22,6 +22,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     const code = error?.code || '';
     for (const known of ['invalid_name', 'invalid_grade', 'too_many_attempts', 'name_taken', 'student_not_found']) if (msg.includes(known)) throw new ApiError(known);
     if (msg.includes('anonymous sign-ins are disabled')) throw new ApiError('anon_disabled');
+    if (msg.includes('invalid api key') || msg.includes('no api key') || (error as { status?: number } | null)?.status === 401) throw new ApiError('bad_key');
     if (code.startsWith('over_') || msg.includes('rate limit')) throw new ApiError('rate_limited');
     if (code === '23505' || msg.includes('duplicate key')) throw new ApiError('name_taken');
     if (code === '42501' || msg.includes('forbidden') || msg.includes('permission denied')) throw new ApiError('forbidden');

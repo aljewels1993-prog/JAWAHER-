@@ -38,9 +38,15 @@ For real use, set up Supabase.
 All of these are done once, in the Supabase dashboard of
 <https://svqojttxvfqmimhdlais.supabase.co>:
 
-1. **SQL Editor → New query:** paste and run these two files, in this order:
-   1. `supabase/migrations/20261110000000_bousla_schema.sql` (tables, RLS, rewards, sign-in)
-   2. `supabase/migrations/20261111000000_teacher_manage_students.sql` (teacher edits / deletes students)
+1. **SQL Editor → New query:** paste the whole of
+   **`supabase/setup/bousla_full_setup.sql`** and press **Run**. This one file holds
+   both migrations, in order (all 11 tables, relationships, indexes, RLS policies
+   and functions). It runs as a single transaction, and if BOUSLA is already
+   installed it stops without changing anything.
+   Then paste **`supabase/setup/verify_setup.sql`** and run it. Every row should say ✅.
+   (The separate files are in `supabase/migrations/` for `supabase db push`.
+   After changing a migration, run `bash supabase/build-setup.sh` to rebuild the
+   combined file; `npm run test:db` fails if you forget.)
 2. **Authentication → Sign In / Providers → "Allow anonymous sign-ins": ON.**
    Each device gets a private, anonymous session. The student's name + grade (or the
    teacher code) is then checked by the database.
