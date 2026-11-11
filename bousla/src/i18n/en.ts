@@ -405,6 +405,8 @@ export const en = {
   'grade.11': 'Grade 11',
   'grade.12': 'Grade 12',
 
+  'footer.rights': '© {year} BOUSLA – All rights reserved',
+  'footer.by': 'Created by',
   'install.prompt': 'Install BOUSLA on your device for quick access.',
   'install.button': 'Install',
   'install.later': 'Later',

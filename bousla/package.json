@@ -1,6 +1,8 @@
 {
   "name": "bousla",
   "private": true,
+  "author": "Jawaher Alkhusaibi",
+  "license": "UNLICENSED",
   "version": "1.0.0",
   "type": "module",
   "description": "BOUSLA – بوصلة: student study planner and motivational learning companion.",

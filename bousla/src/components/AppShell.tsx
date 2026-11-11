@@ -7,6 +7,7 @@ import { useTimer } from '../state/timer';
 import { cloudConfigured } from '../api';
 import { formatClock } from '../lib/timer';
 import compassUrl from '../assets/compass.png';
+import { Footer } from './Footer';
 
 interface Item { to: string; icon: string; label: MessageKey; short?: MessageKey }
 
@@ -110,6 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Link to="/profile" className="icon-btn" aria-label={t('nav.profile')}>👤</Link>
         </header>
         {children}
+        <Footer />
       </div>
 
       <nav className="bottom-nav" aria-label={t('nav.main')} style={teacher ? { gridTemplateColumns: 'repeat(2, 1fr)' } : undefined}>

@@ -7,6 +7,7 @@ import { Mascot } from '../../components/Mascot';
 import { LangToggle } from '../../components/AppShell';
 import { errorText } from '../../components/ui';
 import logoUrl from '../../assets/logo.jpg';
+import { Footer } from '../../components/Footer';
 
 export const GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
@@ -29,6 +30,7 @@ function AuthLayout({ children }: { children: ReactNode }) {
         {!cloudConfigured && <div className="alert warn" role="note">🧪 {t('device.banner')}</div>}
         {children}
       </section>
+      <div className="auth-footer"><Footer light /></div>
     </main>
   );
 }

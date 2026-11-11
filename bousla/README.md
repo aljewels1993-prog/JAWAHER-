@@ -1,5 +1,7 @@
 # BOUSLA – بوصلة 🧭
 
+> © 2026 الأستاذة: جواهر الخصيبي — جميع الحقوق محفوظة. See [COPYRIGHT.md](COPYRIGHT.md).
+
 **Your Time, Your Success. · وقتك، نجاحك.**
 
 A bilingual (Arabic-first, RTL) study planner and motivational companion for school

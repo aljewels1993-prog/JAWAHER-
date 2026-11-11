@@ -407,6 +407,8 @@ export const ar: Dict = {
   'grade.11': 'الصف الحادي عشر',
   'grade.12': 'الصف الثاني عشر',
 
+  'footer.rights': '© {year} بوصلة – جميع الحقوق محفوظة',
+  'footer.by': 'إعداد',
   'install.prompt': 'ثبّتي بوصلة على جهازك للوصول السريع.',
   'install.button': 'تثبيت',
   'install.later': 'لاحقًا',
