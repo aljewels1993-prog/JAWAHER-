@@ -13,7 +13,8 @@
     "build:artifact": "vite build --mode artifact",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:db": "bash supabase/tests/run-local.sh"
+    "test:db": "bash supabase/tests/run-local.sh",
+    "test:live": "node supabase/tests/live-check.mjs"
   },
   "dependencies": {
     "@fontsource/baloo-bhaijaan-2": "5.1.0",

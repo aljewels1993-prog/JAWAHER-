@@ -27,4 +27,7 @@ echo "$VERIFY" | sed 's/^/  /'
 if echo "$VERIFY" | grep -q "❌"; then echo "✖ verify_setup reported a problem"; exit 1; fi
 echo "▶ security & reward tests"
 cat "$HERE/security_test.sql" | $RUNAS "${PSQL[@]}" -o /dev/null 2>&1 | sed "s/^NOTICE:  /  /"
+echo "▶ change-code template refuses a malformed hash"
+if sed "s|HASH_HERE|not-a-hash|" "$HERE/../setup/change_teacher_code_template.sql" | $RUNAS "${PSQL[@]}" >/dev/null 2>&1; then echo "✖ malformed hash accepted"; exit 1; fi
+echo "  ok - malformed hash refused"
 echo "✔ all database tests passed"
