@@ -257,3 +257,39 @@ select pg_temp.check(not public.is_teacher(), 'new code signs teachers out');
 select pg_temp.check(not public.teacher_login('1993'), 'old code no longer works');
 select pg_temp.check(public.teacher_login('2468'), 'new code works');
 reset role;
+
+-- ─── teacher manages students (migration 20261111) ──────────────────────
+select set_config('request.jwt.claim.sub', :B, false);
+set role authenticated;
+do $$ begin
+  begin perform public.teacher_delete_student(public.current_student_id()); raise exception 'TEST FAILED: student deleted';
+  exception when insufficient_privilege then raise notice 'ok - a student cannot delete accounts'; end;
+  begin perform public.teacher_update_student(public.current_student_id(), 'Hacker', 1); raise exception 'TEST FAILED: student renamed';
+  exception when insufficient_privilege then raise notice 'ok - a student cannot use teacher editing'; end;
+end $$;
+reset role;
+
+select set_config('request.jwt.claim.sub', :T, false);
+set role authenticated;
+do $$
+declare v_badr uuid := (select id from public.teacher_list_students('badr', null));
+        v_alia uuid := (select id from public.teacher_list_students('alia', 5));
+        r public.student_profiles;
+begin
+  r := public.teacher_update_student(v_badr, '  Badr  Said Al-Harthy ', 6);
+  perform pg_temp.check(r.full_name = 'Badr Said Al-Harthy' and r.grade = 6, 'teacher corrects a student name and grade');
+  begin perform public.teacher_update_student(v_badr, 'alia salim', 5); raise exception 'TEST FAILED: duplicate identity';
+  exception when unique_violation then raise notice 'ok - cannot give two students the same name + grade'; end;
+  perform public.teacher_delete_student(v_alia);
+  perform pg_temp.check(not exists (select 1 from public.teacher_list_students('alia', 5)), 'teacher deletes a student');
+end $$;
+reset role;
+select pg_temp.check(not exists (select 1 from public.study_tasks t left join public.student_profiles p on p.id = t.student_id where p.id is null),
+                     'deleting a student removes their tasks');
+select pg_temp.check(not exists (select 1 from public.student_devices d left join public.student_profiles p on p.id = d.student_id where p.id is null),
+                     'and unlinks their devices');
+-- Badr signs in with the corrected name on his device: same account.
+select set_config('request.jwt.claim.sub', :B, false);
+set role authenticated;
+select pg_temp.check(not (public.student_login('Badr Said Al-Harthy', 6)->>'created')::boolean, 'student signs in with the corrected name');
+reset role;

@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useState, type FormEvent } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { useI18n, type MessageKey } from '../../i18n';
 import { useAsync } from '../../state/useAsync';
-import { Empty, LoadError, Spinner, Stat } from '../../components/ui';
+import { Empty, LoadError, Modal, Spinner, Stat, errorText } from '../../components/ui';
+import { useFeedback } from '../../state/feedback';
+import { GRADES } from '../auth/AuthPages';
 import { TaskItem } from '../../components/Tasks';
 import { WeeklyReportView, useMinutesText } from '../../components/WeeklyReportView';
 import { BadgeCard, progressStats } from '../Achievements';
@@ -17,6 +19,11 @@ export default function TeacherStudent() {
   const { t, lang } = useI18n();
   const mins = useMinutesText();
   const [start, setStart] = useState(() => weekStart(todayIso()));
+  const navigate = useNavigate();
+  const { toast } = useFeedback();
+  const [editing, setEditing] = useState<{ name: string; grade: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [busy, setBusy] = useState(false);
   const base = useAsync(() => Promise.all([api.getStudentProfile(id), api.getStats(id), api.listAchievements(), api.listStudentAchievements(id)]), [id]);
   const week = useAsync(() => Promise.all([api.getWeeklyReport(start, id), api.listTasks(start, addDays(start, 6), id)]), [id, start]);
 
@@ -25,6 +32,35 @@ export default function TeacherStudent() {
   const [profile, stats, catalogue, badges] = base.data;
   if (!profile) return <div className="page"><Empty icon="🔍" action={<Link className="btn" to="/teacher">{t('teacher.backToList')}</Link>}>{t('teacher.studentNotFound')}</Empty></div>;
   const level = levelFor(profile.total_points);
+
+  const saveEdit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    setBusy(true);
+    try {
+      await api.teacherUpdateStudent(profile.id, editing.name, Number(editing.grade));
+      toast(t('teacher.saved'), 'success');
+      setEditing(null);
+      await base.reload();
+    } catch (err) {
+      toast(errorText(t, err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    setBusy(true);
+    try {
+      await api.teacherDeleteStudent(profile.id);
+      toast(t('teacher.deleted'), 'success', '🗑️');
+      navigate('/teacher', { replace: true });
+    } catch (err) {
+      toast(errorText(t, err), 'error');
+      setBusy(false);
+      setDeleting(false);
+    }
+  };
   const unlocked = new Map(badges.map((b) => [b.achievement_id, b.unlocked_at]));
   const weekMinutes = week.data ? week.data[0].study_minutes : 0;
 
@@ -57,6 +93,45 @@ export default function TeacherStudent() {
         <h2>🏆 {t('teacher.badges')}</h2>
         <div className="badge-grid">{catalogue.map((a) => <BadgeCard key={a.id} a={a} unlockedAt={unlocked.get(a.id)} stats={progressStats(stats)} />)}</div>
       </section>
+
+      <section className="card tint-cream" style={{ marginBottom: 16 }} aria-labelledby="manage-h">
+        <h2 id="manage-h">🛠️ {t('teacher.manage')}</h2>
+        <p style={{ color: 'var(--ink-2)', fontWeight: 600, fontSize: '0.9rem', marginBottom: 12 }}>{t('teacher.manageHint')}</p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button className="btn secondary" onClick={() => setEditing({ name: profile.full_name, grade: String(profile.grade) })}>✏️ {t('teacher.editStudent')}</button>
+          <button className="btn danger" onClick={() => setDeleting(true)}>🗑️ {t('teacher.deleteStudent')}</button>
+        </div>
+      </section>
+
+      {editing && (
+        <Modal title={t('teacher.editStudent')} onClose={() => setEditing(null)}>
+          <form onSubmit={saveEdit}>
+            <div className="field">
+              <label htmlFor="ts-name">{t('login.name')}</label>
+              <input id="ts-name" className="input" maxLength={80} value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+            </div>
+            <div className="field">
+              <label htmlFor="ts-grade">{t('login.grade')}</label>
+              <select id="ts-grade" className="input" value={editing.grade} onChange={(e) => setEditing({ ...editing, grade: e.target.value })}>
+                {GRADES.map((g) => <option key={g} value={g}>{t(`grade.${g}` as MessageKey)}</option>)}
+              </select>
+            </div>
+            <div className="actions">
+              <button type="button" className="btn ghost" onClick={() => setEditing(null)}>{t('common.cancel')}</button>
+              <button className="btn" disabled={busy}>{busy ? t('common.saving') : t('common.save')}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {deleting && (
+        <Modal title={t('teacher.deleteStudent')} onClose={() => setDeleting(false)}>
+          <p style={{ fontWeight: 700, color: 'var(--ink-2)', marginBottom: 12 }}>{t('teacher.deleteConfirm', { name: profile.full_name })}</p>
+          <div className="actions">
+            <button className="btn ghost" onClick={() => setDeleting(false)}>{t('common.cancel')}</button>
+            <button className="btn pink" disabled={busy} onClick={() => void confirmDelete()}>🗑️ {t('common.delete')}</button>
+          </div>
+        </Modal>
+      )}
 
       <h2 style={{ fontSize: '1.1rem', margin: '8px 0 10px', color: 'var(--navy)' }}>📊 {t('teacher.weekReport')}</h2>
       <WeekNav start={start} onChange={setStart} />

@@ -476,6 +476,34 @@ export function createDeviceApi(storage: Storage = localStorage, teacherCode = '
       canView(db, id);
       return db.students.find((s) => s.id === id) ?? null;
     },
+
+    async teacherUpdateStudent(id: string, name: string, grade: number) {
+      if (!teacherSignedIn()) throw new ApiError('forbidden');
+      const full = tidyName(name);
+      if (full.length < 2 || full.length > 80) throw new ApiError('invalid_name');
+      if (!Number.isInteger(grade) || grade < 1 || grade > 12) throw new ApiError('invalid_grade');
+      const db = load();
+      const s = db.students.find((x) => x.id === id);
+      if (!s) throw new ApiError('not_found');
+      if (db.students.some((o) => o.id !== id && o.grade === grade && nameKey(o.full_name) === nameKey(full))) throw new ApiError('name_taken');
+      s.full_name = full;
+      s.grade = grade;
+      save(db);
+      return { ...s };
+    },
+
+    async teacherDeleteStudent(id: string) {
+      if (!teacherSignedIn()) throw new ApiError('forbidden');
+      const db = load();
+      if (!db.students.some((x) => x.id === id)) throw new ApiError('not_found');
+      db.students = db.students.filter((x) => x.id !== id);
+      db.tasks = db.tasks.filter((x) => x.student_id !== id);
+      db.sessions = db.sessions.filter((x) => x.student_id !== id);
+      db.points = db.points.filter((x) => x.student_id !== id);
+      db.badges = db.badges.filter((x) => x.student_id !== id);
+      db.notifications = db.notifications.filter((x) => x.user_id !== id);
+      save(db);
+    },
   };
   return api;
 }

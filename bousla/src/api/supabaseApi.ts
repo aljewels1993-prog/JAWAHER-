@@ -20,7 +20,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
   const fail = (error: { message?: string; code?: string } | null): never => {
     const msg = (error?.message || '').toLowerCase();
     const code = error?.code || '';
-    for (const known of ['invalid_name', 'invalid_grade', 'too_many_attempts']) if (msg.includes(known)) throw new ApiError(known);
+    for (const known of ['invalid_name', 'invalid_grade', 'too_many_attempts', 'name_taken', 'student_not_found']) if (msg.includes(known)) throw new ApiError(known);
     if (msg.includes('anonymous sign-ins are disabled')) throw new ApiError('anon_disabled');
     if (code.startsWith('over_') || msg.includes('rate limit')) throw new ApiError('rate_limited');
     if (code === '23505' || msg.includes('duplicate key')) throw new ApiError('name_taken');
@@ -222,6 +222,14 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
       const { data, error } = await sb.from('student_profiles').select('*').eq('id', id).maybeSingle();
       if (error) fail(error);
       return (data as StudentProfile) ?? null;
+    },
+
+    async teacherUpdateStudent(id, name, grade) {
+      return rpc<StudentProfile>('teacher_update_student', { p_student: id, p_name: name, p_grade: grade });
+    },
+
+    async teacherDeleteStudent(id) {
+      await rpc('teacher_delete_student', { p_student: id });
     },
   };
 }

@@ -95,6 +95,15 @@ describe('device backend rewards', () => {
     expect(rows[0]).toMatchObject({ tasks_planned: 3, tasks_due: 2, tasks_due_done: 1, overdue_tasks: 1, grade: 5 });
     expect(await api.listStudents(undefined, 6)).toHaveLength(0);
     expect(await api.listStudents('badr')).toHaveLength(1);
+
+    // Teacher manages students: rename/move grade, refuse duplicates, delete with all data.
+    const badr = (await api.listStudents('badr'))[0];
+    expect(await api.teacherUpdateStudent(badr.id, ' Badr  Said Al-Harthy ', 6)).toMatchObject({ full_name: 'Badr Said Al-Harthy', grade: 6 });
+    await expect(api.teacherUpdateStudent(badr.id, 'alia salim', 5)).rejects.toMatchObject({ code: 'name_taken' });
+    await api.teacherDeleteStudent(rows[0].id);
+    expect((await api.listStudents()).map((r) => r.full_name)).toEqual(['Badr Said Al-Harthy']);
+    await api.signOut();
+    await expect(api.teacherDeleteStudent(badr.id)).rejects.toMatchObject({ code: 'forbidden' });
   });
 
   it('schedules a reminder before the task start time', async () => {

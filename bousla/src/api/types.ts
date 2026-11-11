@@ -217,6 +217,10 @@ export interface Api {
 
   listStudents(search?: string, grade?: number): Promise<TeacherStudentRow[]>;
   getStudentProfile(id: string): Promise<StudentProfile | null>;
+  /** Teacher only: correct a student's name or grade. */
+  teacherUpdateStudent(id: string, name: string, grade: number): Promise<StudentProfile>;
+  /** Teacher only: delete a student and all of their data. */
+  teacherDeleteStudent(id: string): Promise<void>;
 }
 
 /** Error with a translatable code (see i18n "error.*"). */

@@ -3,10 +3,11 @@ import { createSupabaseApi } from './supabaseApi';
 import { createDeviceApi } from './deviceApi';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// The publishable key (sb_publishable_…) is meant for browsers. The legacy anon key also works.
+const key = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY) as string | undefined;
 
 /** Cloud when Supabase is configured at build time; otherwise device-only mode. */
-export const cloudConfigured = !!(url && key && url.startsWith('https://'));
+export const cloudConfigured = !!(url && key && url.startsWith('https://') && !key.includes('your-key'));
 
 /** localStorage, or an in-memory store where the browser blocks it. */
 function safeStorage(): Storage {

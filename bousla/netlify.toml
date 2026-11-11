@@ -6,6 +6,9 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # Public project address. Add VITE_SUPABASE_PUBLISHABLE_KEY in the Netlify UI
+  # (Site configuration → Environment variables), never in this file.
+  VITE_SUPABASE_URL = "https://svqojttxvfqmimhdlais.supabase.co"
 
 [[redirects]]
   from   = "/*"

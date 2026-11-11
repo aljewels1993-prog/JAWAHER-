@@ -33,42 +33,47 @@ stored only in that browser, and a yellow banner says so. This is for trying the
 on one device. It is not secure for a class, because everything runs in the browser.
 For real use, set up Supabase.
 
-## 2. Set up Supabase (required for real use)
+## 2. Connect Supabase (project `svqojttxvfqmimhdlais`)
 
-1. Create a project at <https://supabase.com>.
-2. **SQL Editor → New query**, paste all of
-   `supabase/migrations/20261110000000_bousla_schema.sql`, and run it.
-   (With the Supabase CLI: `supabase link` then `supabase db push`.)
-3. **Authentication → Sign In / Providers → "Allow anonymous sign-ins": turn it ON.**
+All of these are done once, in the Supabase dashboard of
+<https://svqojttxvfqmimhdlais.supabase.co>:
+
+1. **SQL Editor → New query:** paste and run these two files, in this order:
+   1. `supabase/migrations/20261110000000_bousla_schema.sql` (tables, RLS, rewards, sign-in)
+   2. `supabase/migrations/20261111000000_teacher_manage_students.sql` (teacher edits / deletes students)
+2. **Authentication → Sign In / Providers → "Allow anonymous sign-ins": ON.**
    Each device gets a private, anonymous session. The student's name + grade (or the
    teacher code) is then checked by the database.
-4. **Authentication → Rate Limits:** raise *anonymous sign-ins per hour* (default 30
-   per IP address). A whole class on the school Wi-Fi shares one IP address, so set it
-   to at least 100 per hour.
-5. **Change the teacher code** (the default is `1993`) in the SQL editor:
+3. **Authentication → Rate Limits:** raise *anonymous sign-ins per hour* (the default
+   is 30 per IP address). A whole class on the school Wi-Fi shares one IP address, so
+   use 100 or more.
+4. **Change the teacher code** (the default is `1993`) in the SQL editor:
 
    ```sql
    select public.set_teacher_code('your-new-code');
    ```
 
    This also signs out every device that used the old code.
-6. **Project Settings → API**: copy the *Project URL* and the **anon public** key into
-   `.env.local` (or your host's environment variables):
+5. **Project Settings → API Keys:** copy the **Publishable key** (`sb_publishable_…`).
+   - Local: create `bousla/.env.local` (git-ignored) from `.env.example` and paste it
+     into `VITE_SUPABASE_PUBLISHABLE_KEY`.
+   - Netlify: *Site configuration → Environment variables →* add
+     `VITE_SUPABASE_PUBLISHABLE_KEY`, then redeploy. The URL is already in `netlify.toml`.
 
-   ```
-   VITE_SUPABASE_URL=https://xxxx.supabase.co
-   VITE_SUPABASE_ANON_KEY=eyJ...
-   ```
+   The publishable key is meant to be public, and the database rules (RLS) protect the
+   data. Never use the **secret** key (`sb_secret_…`) or `service_role` key in the app.
 
-   ⚠️ Never put the `service_role` key in the app. Anything prefixed `VITE_` is
-   visible in the browser.
+Once the key is set, the yellow "preview mode" banner disappears, and everything is
+saved in Supabase: students, points, badges, tasks, sessions and notifications.
 
 ### How sign-in works
 
 - **Student:** types their full name and chooses a grade (1–12). The first time,
   this creates the student. Later, the same name + grade (on any device) opens the
   same plan, points and badges. Letter case and extra spaces don't matter.
-- **Teacher:** opens the *Teacher* tab and enters the teacher code. The code is
+- **Teacher:** opens the *Teacher* tab and enters the teacher code. The teacher sees
+  every student's progress and can correct a student's name or grade, or delete a
+  student account (points and badges can't be edited, so they stay fair). The code is
   checked on the server against a bcrypt hash. After 5 wrong codes, that device
   is blocked for 15 minutes, and the whole school is blocked after 30 wrong codes.
 
@@ -116,8 +121,8 @@ npm run build
 
 **Netlify:** create a new site from this repository, then set **Base directory =
 `bousla`** (this folder's `netlify.toml` then applies: build `npm run build`, publish
-`dist`, single-page-app redirects). Add `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_ANON_KEY` under *Site configuration → Environment variables*.
+`dist`, single-page-app redirects). Add `VITE_SUPABASE_PUBLISHABLE_KEY` under
+*Site configuration → Environment variables* (the URL is already in `netlify.toml`).
 The repository root `netlify.toml` belongs to the Oman English Quest game. Leave it
 as it is.
 
