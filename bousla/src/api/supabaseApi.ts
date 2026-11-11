@@ -1,39 +1,48 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   ApiError, type Account, type Api, type AppNotification, type CompleteSessionResult, type ProfilePatch,
-  type RewardResult, type SignUpInput, type StudentProfile, type StudySession, type Task, type TaskInput,
+  type RewardResult, type StudentProfile, type StudySession, type Task, type TaskInput,
   type TeacherPatch, type TeacherProfile,
 } from './types';
 
 /**
- * Cloud backend: Supabase Auth + Postgres. All rules (ownership, points,
+ * Cloud backend: Supabase Auth (anonymous device sessions) + Postgres.
+ * Students sign in with name + grade, teachers with a code; both are
+ * checked by SQL functions. All rules (ownership, points,
  * badges, roles) are enforced by RLS and SQL functions on the server; this
  * class only forwards requests. Only the public anon key is used here.
  */
 export function createSupabaseApi(url: string, anonKey: string): Api {
   const sb: SupabaseClient = createClient(url, anonKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
   });
 
   const fail = (error: { message?: string; code?: string } | null): never => {
     const msg = (error?.message || '').toLowerCase();
     const code = error?.code || '';
-    if (code === 'invalid_credentials' || msg.includes('invalid login')) throw new ApiError('invalid_credentials');
-    if (code === 'email_not_confirmed' || msg.includes('not confirmed')) throw new ApiError('email_not_confirmed');
-    if (code === 'user_already_exists' || msg.includes('already registered')) throw new ApiError('email_taken');
-    if (code === 'weak_password' || msg.includes('password should')) throw new ApiError('weak_password');
+    for (const known of ['invalid_name', 'invalid_grade', 'too_many_attempts']) if (msg.includes(known)) throw new ApiError(known);
+    if (msg.includes('anonymous sign-ins are disabled')) throw new ApiError('anon_disabled');
     if (code.startsWith('over_') || msg.includes('rate limit')) throw new ApiError('rate_limited');
-    if (code === '23505' || msg.includes('duplicate key')) throw new ApiError('username_taken');
+    if (code === '23505' || msg.includes('duplicate key')) throw new ApiError('name_taken');
     if (code === '42501' || msg.includes('forbidden') || msg.includes('permission denied')) throw new ApiError('forbidden');
     if (msg.includes('failed to fetch') || msg.includes('network')) throw new ApiError('network');
     throw new ApiError('unknown', error?.message);
   };
 
-  const uid = async (): Promise<string> => {
+  /** Makes sure this device has a (private, anonymous) Supabase session. */
+  const ensureSession = async () => {
     const { data } = await sb.auth.getSession();
-    const id = data.session?.user.id;
-    if (!id) throw new ApiError('not_signed_in');
-    return id;
+    if (data.session) return;
+    const { error } = await sb.auth.signInAnonymously();
+    if (error) fail(error);
+  };
+
+  /** The signed-in student's id (a non-teacher can only read their own profile row). */
+  const uid = async (): Promise<string> => {
+    const { data, error } = await sb.rpc('current_student_id');
+    if (error) fail(error);
+    if (!data) throw new ApiError('not_signed_in');
+    return data as string;
   };
 
   const normTask = (t: Task): Task => ({ ...t, start_time: t.start_time ? t.start_time.slice(0, 5) : null });
@@ -51,13 +60,17 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
       const { data } = await sb.auth.getSession();
       const user = data.session?.user;
       if (!user) return null;
-      const [{ data: teacher }, { data: student }] = await Promise.all([
-        sb.from('teacher_profiles').select('*').eq('id', user.id).maybeSingle(),
-        sb.from('student_profiles').select('*').eq('id', user.id).maybeSingle(),
-      ]);
+      const { data: teacher } = await sb.from('teacher_profiles').select('*').eq('id', user.id).maybeSingle();
+      let student: StudentProfile | null = null;
+      if (!teacher) {
+        const { data: sid } = await sb.rpc('current_student_id');
+        if (!sid) return null; // device session exists but nobody has signed in on it
+        const { data } = await sb.from('student_profiles').select('*').eq('id', sid).maybeSingle();
+        student = (data as StudentProfile) ?? null;
+        if (!student) return null;
+      }
       return {
         userId: user.id,
-        email: user.email ?? null,
         role: teacher ? 'teacher' : 'student',
         teacher: (teacher as TeacherProfile) ?? null,
         student: (student as StudentProfile) ?? null,
@@ -69,42 +82,20 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
       return () => data.subscription.unsubscribe();
     },
 
-    async signUp(input: SignUpInput) {
-      const { data, error } = await sb.auth.signUp({
-        email: input.email.trim(),
-        password: input.password,
-        options: {
-          emailRedirectTo: `${location.origin}/login`,
-          data: { full_name: input.fullName.trim(), username: input.username.trim().toLowerCase(), language: input.language, timezone: input.timezone },
-        },
-      });
-      if (error) fail(error);
-      // With e-mail confirmation on, an existing address returns a user without identities.
-      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) throw new ApiError('email_taken');
-      return { needsConfirmation: !data.session };
+    async studentLogin(name, grade, language, timezone) {
+      await ensureSession();
+      const r = await rpc<{ created: boolean }>('student_login', { p_name: name, p_grade: grade, p_language: language, p_timezone: timezone });
+      return { created: !!r.created };
     },
 
-    async signIn(email, password) {
-      const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password });
-      if (error) fail(error);
+    async teacherLogin(code) {
+      await ensureSession();
+      const ok = await rpc<boolean>('teacher_login', { p_code: code });
+      if (!ok) throw new ApiError('invalid_code');
     },
 
     async signOut() {
       await sb.auth.signOut();
-    },
-
-    async requestPasswordReset(email) {
-      const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${location.origin}/reset-password` });
-      if (error) fail(error);
-    },
-
-    async updatePassword(password) {
-      const { error } = await sb.auth.updateUser({ password });
-      if (error) fail(error);
-    },
-
-    async usernameAvailable(username) {
-      return rpc<boolean>('username_available', { p_username: username.trim().toLowerCase() });
     },
 
     async updateProfile(patch: ProfilePatch) {
@@ -115,7 +106,9 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     },
 
     async updateTeacherProfile(patch: TeacherPatch) {
-      const id = await uid();
+      const { data: auth } = await sb.auth.getSession();
+      const id = auth.session?.user.id;
+      if (!id) throw new ApiError('not_signed_in');
       const { data, error } = await sb.from('teacher_profiles').update(patch).eq('id', id).select('*').single();
       if (error) fail(error);
       return data as TeacherProfile;
@@ -221,8 +214,8 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
       return rpc('get_weekly_report', { p_week_start: weekStart, p_student: studentId ?? null });
     },
 
-    async listStudents(search) {
-      return rpc('teacher_list_students', { p_search: search?.trim() || null });
+    async listStudents(search, grade) {
+      return rpc('teacher_list_students', { p_search: search?.trim() || null, p_grade: grade ?? null });
     },
 
     async getStudentProfile(id) {

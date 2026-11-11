@@ -8,7 +8,7 @@ import { NotificationsProvider } from './state/notifications';
 import { AppShell } from './components/AppShell';
 import { Spinner } from './components/ui';
 import { Mascot } from './components/Mascot';
-import { LoginPage, SignupPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth/AuthPages';
+import { LoginPage } from './pages/auth/AuthPages';
 import { HomePage } from './pages/Home';
 
 // Less-used screens are split into their own chunks.
@@ -75,15 +75,11 @@ function NotFound() {
 }
 
 function AppRoutes() {
-  const { loading, recovering } = useAuth();
+  const { loading } = useAuth();
   if (loading) return <Splash />;
-  if (recovering) return <ResetPasswordPage />;
   return (
     <Routes>
       <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
-      <Route path="/signup" element={<PublicOnly><SignupPage /></PublicOnly>} />
-      <Route path="/forgot-password" element={<PublicOnly><ForgotPasswordPage /></PublicOnly>} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route path="/" element={<RequireStudent><HomePage /></RequireStudent>} />
       <Route path="/planner" element={<RequireStudent><PlannerPage /></RequireStudent>} />

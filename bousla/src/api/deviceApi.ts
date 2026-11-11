@@ -1,7 +1,7 @@
 import {
   ApiError, type Account, type Achievement, type Api, type AppNotification, type NotificationKind,
   type PointsTransaction, type RewardResult, type StudentProfile, type StudySession, type Task, type TaskInput,
-  type TeacherProfile, type WeeklyReport,
+  type Lang, type TeacherProfile, type WeeklyReport,
 } from './types';
 import { ACHIEVEMENT_RULES, REWARDS, computeStreaks, newlyEarned } from '../lib/rewards';
 import { addDays, isoDate, taskDateTime, todayIso, weekDays } from '../lib/dates';
@@ -9,18 +9,17 @@ import { ACHIEVEMENT_TEXT } from '../i18n/achievements';
 
 /**
  * DEVICE MODE — used only when Supabase is not configured.
- * Data stays in this browser (localStorage). Passwords are stored as salted
- * PBKDF2 hashes, never in plain text. It follows the same reward rules as
- * the server, but because everything runs on the device it is meant for
- * previews and single-device use, not for a class (the UI says so).
+ * Data stays in this browser (localStorage). Students sign in with name +
+ * grade; the teacher code is checked here on the device. It follows the same
+ * reward rules as the server, but because everything runs on the device it is
+ * meant for previews and single-device use, not for a class (the UI says so).
  */
-interface DeviceUser { id: string; email: string; salt: string; hash: string }
+type DeviceSessionInfo = { role: 'student' | 'teacher'; id: string };
 interface DeviceSession extends StudySession { student_id: string }
 interface DevicePoints extends PointsTransaction { student_id: string }
 interface DeviceBadge { student_id: string; achievement_id: string; unlocked_at: string }
 interface DeviceNotification extends AppNotification { user_id: string; dedupe_key: string | null }
 interface DB {
-  users: DeviceUser[];
   students: StudentProfile[];
   teachers: TeacherProfile[];
   tasks: Task[];
@@ -30,22 +29,20 @@ interface DB {
   notifications: DeviceNotification[];
 }
 
-const DB_KEY = 'bousla.device.db.v1';
-const SESSION_KEY = 'bousla.device.session.v1';
-const empty = (): DB => ({ users: [], students: [], teachers: [], tasks: [], sessions: [], points: [], badges: [], notifications: [] });
+const DB_KEY = 'bousla.device.db.v2';
+const SESSION_KEY = 'bousla.device.session.v2';
+const ATTEMPTS_KEY = 'bousla.device.teacherAttempts.v1';
+
+/** Same rule as the SQL name_key(): case and extra spaces do not matter. */
+export const nameKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+const tidyName = (name: string) => name.trim().replace(/\s+/g, ' ');
+const empty = (): DB => ({ students: [], teachers: [], tasks: [], sessions: [], points: [], badges: [], notifications: [] });
 
 const uuid = () => (typeof globalThis.crypto?.randomUUID === "function" ? crypto.randomUUID() : `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
 const nowIso = () => new Date().toISOString();
 const localDay = (ts: string) => isoDate(new Date(ts));
 
-async function hashPassword(password: string, salt: string): Promise<string> {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc.encode(salt), iterations: 120_000, hash: 'SHA-256' }, key, 256);
-  return [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-export function createDeviceApi(storage: Storage = localStorage): Api & { promoteToTeacher(email: string, school?: string): string } {
+export function createDeviceApi(storage: Storage = localStorage, teacherCode = '1993'): Api {
   const listeners = new Set<(e: string) => void>();
   const emit = (e: string) => listeners.forEach((l) => l(e));
 
@@ -53,16 +50,18 @@ export function createDeviceApi(storage: Storage = localStorage): Api & { promot
     try { return { ...empty(), ...JSON.parse(storage.getItem(DB_KEY) || '{}') }; } catch { return empty(); }
   };
   const save = (db: DB) => storage.setItem(DB_KEY, JSON.stringify(db));
-  const currentId = () => storage.getItem(SESSION_KEY);
+  const session = (): DeviceSessionInfo | null => {
+    try { return JSON.parse(storage.getItem(SESSION_KEY) || 'null'); } catch { return null; }
+  };
+  const currentId = () => { const s = session(); return s?.role === 'student' ? s.id : null; };
   const me = (): string => {
     const id = currentId();
     if (!id) throw new ApiError('not_signed_in');
     return id;
   };
-  const isTeacher = (db: DB, id: string | null) => !!id && db.teachers.some((t) => t.id === id);
-  const canView = (db: DB, studentId: string) => {
-    const id = me();
-    if (studentId !== id && !isTeacher(db, id)) throw new ApiError('forbidden');
+  const teacherSignedIn = () => session()?.role === 'teacher';
+  const canView = (_db: DB, studentId: string) => {
+    if (studentId !== currentId() && !teacherSignedIn()) throw new ApiError('forbidden');
   };
   const student = (db: DB, id: string) => {
     const s = db.students.find((p) => p.id === id);
@@ -125,13 +124,16 @@ export function createDeviceApi(storage: Storage = localStorage): Api & { promot
     mode: 'device' as const,
 
     async getAccount(): Promise<Account | null> {
-      const id = currentId();
-      if (!id) return null;
+      const ses = session();
+      if (!ses) return null;
       const db = load();
-      const user = db.users.find((u) => u.id === id);
-      if (!user) { storage.removeItem(SESSION_KEY); return null; }
-      const teacher = db.teachers.find((t) => t.id === id) ?? null;
-      return { userId: id, email: user.email, role: teacher ? 'teacher' : 'student', teacher, student: db.students.find((s) => s.id === id) ?? null };
+      if (ses.role === 'teacher') {
+        const teacher = db.teachers.find((t) => t.id === ses.id) ?? { id: ses.id, language: 'ar' as const };
+        return { userId: ses.id, role: 'teacher', teacher, student: null };
+      }
+      const student = db.students.find((s) => s.id === ses.id);
+      if (!student) { storage.removeItem(SESSION_KEY); return null; }
+      return { userId: ses.id, role: 'student', teacher: null, student };
     },
 
     onAuthChange(cb: (e: string) => void) {
@@ -139,29 +141,40 @@ export function createDeviceApi(storage: Storage = localStorage): Api & { promot
       return () => listeners.delete(cb);
     },
 
-    async signUp(input: Parameters<Api['signUp']>[0]) {
+    async studentLogin(name: string, grade: number, language: Lang, timezone: string) {
+      const full = tidyName(name);
+      if (full.length < 2 || full.length > 80) throw new ApiError('invalid_name');
+      if (!Number.isInteger(grade) || grade < 1 || grade > 12) throw new ApiError('invalid_grade');
       const db = load();
-      const email = input.email.trim().toLowerCase();
-      const username = input.username.trim().toLowerCase();
-      if (db.users.some((u) => u.email === email)) throw new ApiError('email_taken');
-      if (!/^[a-z0-9_.]{3,20}$/.test(username) || db.students.some((s) => s.username === username)) throw new ApiError('username_taken');
-      if (input.password.length < 8) throw new ApiError('weak_password');
-      const id = uuid();
-      const salt = uuid();
-      db.users.push({ id, email, salt, hash: await hashPassword(input.password, salt) });
-      db.students.push({ id, full_name: input.fullName.trim(), username, language: input.language, timezone: input.timezone, custom_subjects: [], total_points: 0, created_at: nowIso() });
-      notify(db, id, 'welcome', { name: input.fullName.trim() }, 'welcome');
+      let s = db.students.find((x) => nameKey(x.full_name) === nameKey(full) && x.grade === grade);
+      const created = !s;
+      if (!s) {
+        s = { id: uuid(), full_name: full, grade, language, timezone, custom_subjects: [], total_points: 0, last_seen_at: nowIso(), created_at: nowIso() };
+        db.students.push(s);
+        notify(db, s.id, 'welcome', { name: full }, 'welcome');
+      }
+      s.last_seen_at = nowIso();
       save(db);
-      storage.setItem(SESSION_KEY, id);
+      storage.setItem(SESSION_KEY, JSON.stringify({ role: 'student', id: s.id }));
       emit('SIGNED_IN');
-      return { needsConfirmation: false };
+      return { created };
     },
 
-    async signIn(email: string, password: string) {
+    async teacherLogin(code: string) {
+      const since = Date.now() - 15 * 60_000;
+      let fails: number[] = [];
+      try { fails = (JSON.parse(storage.getItem(ATTEMPTS_KEY) || '[]') as number[]).filter((x) => x > since); } catch { /* ignore */ }
+      if (fails.length >= 5) throw new ApiError('too_many_attempts');
+      if (code.trim() !== teacherCode) {
+        storage.setItem(ATTEMPTS_KEY, JSON.stringify([...fails, Date.now()]));
+        throw new ApiError('invalid_code');
+      }
+      storage.removeItem(ATTEMPTS_KEY);
       const db = load();
-      const user = db.users.find((u) => u.email === email.trim().toLowerCase());
-      if (!user || (await hashPassword(password, user.salt)) !== user.hash) throw new ApiError('invalid_credentials');
-      storage.setItem(SESSION_KEY, user.id);
+      const id = uuid();
+      db.teachers.push({ id, language: 'ar' });
+      save(db);
+      storage.setItem(SESSION_KEY, JSON.stringify({ role: 'teacher', id }));
       emit('SIGNED_IN');
     },
 
@@ -170,37 +183,16 @@ export function createDeviceApi(storage: Storage = localStorage): Api & { promot
       emit('SIGNED_OUT');
     },
 
-    async requestPasswordReset() {
-      throw new ApiError('reset_needs_cloud');
-    },
-
-    async updatePassword(password: string) {
-      if (password.length < 8) throw new ApiError('weak_password');
-      const db = load();
-      const user = db.users.find((u) => u.id === me())!;
-      user.salt = uuid();
-      user.hash = await hashPassword(password, user.salt);
-      save(db);
-    },
-
-    async usernameAvailable(username: string) {
-      const u = username.trim().toLowerCase();
-      return /^[a-z0-9_.]{3,20}$/.test(u) && !load().students.some((s) => s.username === u);
-    },
-
     async updateProfile(patch: Parameters<Api['updateProfile']>[0]) {
       const db = load();
       const s = student(db, me());
-      if (patch.username !== undefined) {
-        const u = patch.username.trim().toLowerCase();
-        if (!/^[a-z0-9_.]{3,20}$/.test(u)) throw new ApiError('invalid_username');
-        if (db.students.some((o) => o.username === u && o.id !== s.id)) throw new ApiError('username_taken');
-        s.username = u;
-      }
-      if (patch.full_name !== undefined) {
-        if (patch.full_name.trim().length < 2) throw new ApiError('invalid_name');
-        s.full_name = patch.full_name.trim();
-      }
+      const nextName = patch.full_name !== undefined ? tidyName(patch.full_name) : s.full_name;
+      const nextGrade = patch.grade ?? s.grade;
+      if (nextName.length < 2 || nextName.length > 80) throw new ApiError('invalid_name');
+      if (!Number.isInteger(nextGrade) || nextGrade < 1 || nextGrade > 12) throw new ApiError('invalid_grade');
+      if (db.students.some((o) => o.id !== s.id && o.grade === nextGrade && nameKey(o.full_name) === nameKey(nextName))) throw new ApiError('name_taken');
+      s.full_name = nextName;
+      s.grade = nextGrade;
       if (patch.language) s.language = patch.language;
       if (patch.custom_subjects) s.custom_subjects = patch.custom_subjects.slice(0, 20);
       save(db);
@@ -209,8 +201,9 @@ export function createDeviceApi(storage: Storage = localStorage): Api & { promot
 
     async updateTeacherProfile(patch: Parameters<Api['updateTeacherProfile']>[0]) {
       const db = load();
-      const t = db.teachers.find((x) => x.id === me());
-      if (!t) throw new ApiError('forbidden');
+      const ses = session();
+      const t = db.teachers.find((x) => x.id === ses?.id);
+      if (!t || ses?.role !== 'teacher') throw new ApiError('forbidden');
       Object.assign(t, patch);
       save(db);
       return { ...t };
@@ -341,12 +334,14 @@ export function createDeviceApi(storage: Storage = localStorage): Api & { promot
         sessions_completed: done.length,
         study_minutes: done.reduce((a, s) => a + s.planned_minutes, 0),
         tasks_completed: db.tasks.filter((t) => t.student_id === id && t.completed).length,
+        tasks_due: db.tasks.filter((t) => t.student_id === id && t.task_date <= today).length,
+        tasks_due_done: db.tasks.filter((t) => t.student_id === id && t.task_date <= today && t.completed).length,
         today_planned: todays.length,
         today_completed: todays.filter((t) => t.completed).length,
         today_minutes: done.filter((s) => localDay(s.completed_at!) === today).reduce((a, s) => a + s.planned_minutes, 0),
         best_streak: streak.best,
         current_streak: streak.current,
-        last_active: done.length ? done.map((s) => s.completed_at!).sort().slice(-1)[0] : null,
+        last_active: student(db, id).last_seen_at,
         today,
       };
     },
@@ -434,25 +429,43 @@ export function createDeviceApi(storage: Storage = localStorage): Api & { promot
       };
     },
 
-    async listStudents(search?: string) {
+    async listStudents(search?: string, grade?: number) {
+      if (!teacherSignedIn()) throw new ApiError('forbidden');
       const db = load();
-      if (!isTeacher(db, currentId())) throw new ApiError('forbidden');
       const q = (search ?? '').trim().toLowerCase();
       const weekAgo = Date.now() - 7 * 86_400_000;
+      const today = todayIso();
+      const weekFrom = addDays(today, -6);
       return db.students
-        .filter((s) => !q || s.full_name.toLowerCase().includes(q) || s.username.includes(q))
+        .filter((s) => (!grade || s.grade === grade) && (!q || s.full_name.toLowerCase().includes(q)))
         .sort((a, b) => a.full_name.localeCompare(b.full_name))
         .map((s) => {
           const done = db.sessions.filter((x) => x.student_id === s.id && x.status === 'completed');
-          const last = [...done.map((x) => x.completed_at!), ...db.tasks.filter((t) => t.student_id === s.id).map((t) => t.completed_at ?? t.created_at)].sort().slice(-1)[0] ?? null;
+          const recent = done.filter((x) => new Date(x.completed_at!).getTime() >= weekAgo);
+          const tasks = db.tasks.filter((t) => t.student_id === s.id);
+          const due = tasks.filter((t) => t.task_date <= today);
+          const week = tasks.filter((t) => t.task_date >= weekFrom && t.task_date <= today);
+          const activeDays = new Set([
+            ...recent.map((x) => localDay(x.completed_at!)),
+            ...tasks.filter((t) => t.completed && new Date(t.completed_at!).getTime() >= weekAgo).map((t) => localDay(t.completed_at!)),
+          ]);
           return {
-            id: s.id, full_name: s.full_name, username: s.username, total_points: s.total_points,
-            tasks_completed: db.tasks.filter((t) => t.student_id === s.id && t.completed).length,
+            id: s.id, full_name: s.full_name, grade: s.grade, total_points: s.total_points,
             sessions_completed: done.length,
             study_minutes: done.reduce((a, x) => a + x.planned_minutes, 0),
-            week_minutes: done.filter((x) => new Date(x.completed_at!).getTime() >= weekAgo).reduce((a, x) => a + x.planned_minutes, 0),
+            week_minutes: recent.reduce((a, x) => a + x.planned_minutes, 0),
+            week_sessions: recent.length,
+            active_days_week: activeDays.size,
+            tasks_planned: tasks.length,
+            tasks_done: tasks.filter((t) => t.completed).length,
+            tasks_due: due.length,
+            tasks_due_done: due.filter((t) => t.completed).length,
+            week_tasks_due: week.length,
+            week_tasks_done: week.filter((t) => t.completed).length,
+            overdue_tasks: tasks.filter((t) => t.task_date < today && !t.completed).length,
             badges: db.badges.filter((b) => b.student_id === s.id).length,
-            last_active: last,
+            current_streak: computeStreaks(done.map((x) => localDay(x.completed_at!)), today).current,
+            last_active: s.last_seen_at,
             joined_at: s.created_at,
           };
         });
@@ -462,21 +475,6 @@ export function createDeviceApi(storage: Storage = localStorage): Api & { promot
       const db = load();
       canView(db, id);
       return db.students.find((s) => s.id === id) ?? null;
-    },
-
-    /** Device-mode admin helper (browser console only): turn an account into a teacher. */
-    promoteToTeacher(email: string, school?: string): string {
-      const db = load();
-      const user = db.users.find((u) => u.email === email.trim().toLowerCase());
-      if (!user) throw new Error(`No account with email ${email}`);
-      const s = db.students.find((x) => x.id === user.id);
-      if (!db.teachers.some((t) => t.id === user.id)) {
-        db.teachers.push({ id: user.id, full_name: s?.full_name ?? email, school_name: school ?? null, language: s?.language ?? 'ar' });
-      }
-      db.students = db.students.filter((x) => x.id !== user.id);
-      save(db);
-      emit('USER_UPDATED');
-      return user.id;
     },
   };
   return api;

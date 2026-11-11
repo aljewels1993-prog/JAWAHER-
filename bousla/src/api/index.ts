@@ -24,9 +24,5 @@ function safeStorage(): Storage {
   }
 }
 
-export const api: Api = cloudConfigured ? createSupabaseApi(url!, key!) : createDeviceApi(safeStorage());
+export const api: Api = cloudConfigured ? createSupabaseApi(url!, key!) : createDeviceApi(safeStorage(), (import.meta.env.VITE_TEACHER_CODE as string | undefined) || '1993');
 
-if (!cloudConfigured && typeof window !== 'undefined') {
-  // Device-mode admin helper, for previews only: __bousla.promoteToTeacher('email')
-  (window as unknown as { __bousla: unknown }).__bousla = api;
-}

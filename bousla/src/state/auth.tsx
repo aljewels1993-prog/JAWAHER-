@@ -6,8 +6,6 @@ import { useI18n } from '../i18n';
 interface AuthState {
   account: Account | null;
   loading: boolean;
-  /** True after the user opened a password-reset link. */
-  recovering: boolean;
   refresh: () => Promise<void>;
   setPoints: (total: number) => void;
   changeLanguage: (lang: Lang) => Promise<void>;
@@ -20,7 +18,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { setLang } = useI18n();
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
-  const [recovering, setRecovering] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -38,9 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
     return api.onAuthChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setRecovering(true);
-      if (event === 'SIGNED_OUT') setRecovering(false);
-      if (event !== 'TOKEN_REFRESHED') void refresh();
+      if (event === 'SIGNED_OUT') setAccount(null);
+      else if (event !== 'TOKEN_REFRESHED' && event !== 'INITIAL_SESSION') void refresh();
     });
   }, [refresh]);
 
@@ -67,8 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccount(null);
   }, []);
 
-  const value = useMemo(() => ({ account, loading, recovering, refresh, setPoints, changeLanguage, signOut }),
-    [account, loading, recovering, refresh, setPoints, changeLanguage, signOut]);
+  const value = useMemo(() => ({ account, loading, refresh, setPoints, changeLanguage, signOut }),
+    [account, loading, refresh, setPoints, changeLanguage, signOut]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

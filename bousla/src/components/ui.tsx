@@ -119,13 +119,3 @@ export function Confetti() {
     </div>
   );
 }
-
-export function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement> & { show: boolean; onToggle: () => void; toggleLabel: string }) {
-  const { show, onToggle, toggleLabel, ...rest } = props;
-  return (
-    <div className="pw-wrap">
-      <input {...rest} type={show ? 'text' : 'password'} className="input" dir="ltr" />
-      <button type="button" onClick={onToggle} aria-label={toggleLabel} aria-pressed={show}>{show ? '🙈' : '👁️'}</button>
-    </div>
-  );
-}

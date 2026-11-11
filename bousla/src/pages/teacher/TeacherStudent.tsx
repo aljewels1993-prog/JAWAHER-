@@ -10,7 +10,7 @@ import { BadgeCard, progressStats } from '../Achievements';
 import { WeekNav } from '../Reports';
 import { addDays, formatDate, formatDateTime, todayIso, weekStart } from '../../lib/dates';
 import { levelFor } from '../../lib/rewards';
-import { EngagementPill, engagementOf } from './TeacherHome';
+import { CommitmentMeter, EngagementPill, engagementOf } from './TeacherHome';
 
 export default function TeacherStudent() {
   const { id = '' } = useParams();
@@ -35,9 +35,9 @@ export default function TeacherStudent() {
         <div className="avatar big" aria-hidden="true">{profile.full_name.charAt(0).toUpperCase()}</div>
         <div className="grow">
           <h1>{profile.full_name}</h1>
-          <p><span dir="ltr">@{profile.username}</span> · {t('teacher.joined', { date: formatDate(profile.created_at.slice(0, 10), lang, { day: 'numeric', month: 'short', year: 'numeric' }) })}</p>
+          <p>🎒 {t(`grade.${profile.grade}` as MessageKey)} · {t('teacher.joined', { date: formatDate(profile.created_at.slice(0, 10), lang, { day: 'numeric', month: 'short', year: 'numeric' }) })}</p>
         </div>
-        <EngagementPill e={engagementOf({ week_minutes: weekMinutes, last_active: stats.last_active })} />
+        <EngagementPill e={engagementOf({ week_minutes: weekMinutes, active_days_week: week.data ? week.data[0].days.filter((d) => d.minutes > 0 || d.tasks > 0).length : 0 })} />
       </div>
 
       <h2 style={{ fontSize: '1.1rem', marginBottom: 10, color: 'var(--navy)' }}>📈 {t('teacher.stats')}</h2>
@@ -47,6 +47,11 @@ export default function TeacherStudent() {
         <Stat icon="⏱️" tone="blue" value={mins(stats.study_minutes)} label={t('home.studyHours')} />
         <Stat icon="🔥" tone="pink" value={stats.current_streak} label={`${t('teacher.streak')} · ${t('teacher.col.lastActive')}: ${stats.last_active ? formatDateTime(stats.last_active, lang) : t('teacher.never')}`} />
       </div>
+
+      <section className="card tint-mint" style={{ marginBottom: 16 }} aria-labelledby="commit-h">
+        <h2 id="commit-h">✅ {t('teacher.commitmentStudent')}</h2>
+        <CommitmentMeter row={{ tasks_due: stats.tasks_due, tasks_due_done: stats.tasks_due_done, overdue_tasks: stats.tasks_due - stats.tasks_due_done - (stats.today_planned - stats.today_completed) }} />
+      </section>
 
       <section className="card" style={{ marginBottom: 16 }}>
         <h2>🏆 {t('teacher.badges')}</h2>

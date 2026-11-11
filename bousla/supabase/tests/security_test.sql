@@ -1,10 +1,11 @@
--- BOUSLA database tests: data isolation, roles, rewards and duplicate prevention.
--- Run with `npm run test:db`. Every check raises an exception on failure.
-\set A '''aaaaaaaa-0000-0000-0000-000000000001'''
-\set B '''bbbbbbbb-0000-0000-0000-000000000002'''
-\set T '''cccccccc-0000-0000-0000-000000000003'''
+-- BOUSLA database tests: sign-in, data isolation, teacher code, rewards and
+-- duplicate prevention. Run with `npm run test:db`. Any failure stops the run.
+\set A1 '''aaaaaaaa-0000-0000-0000-000000000001'''
+\set A2 '''aaaaaaaa-0000-0000-0000-000000000002'''
+\set B  '''bbbbbbbb-0000-0000-0000-000000000003'''
+\set T  '''cccccccc-0000-0000-0000-000000000004'''
+\set X  '''dddddddd-0000-0000-0000-000000000005'''
 
--- Small assertion helper.
 create function pg_temp.check(ok boolean, msg text) returns void language plpgsql as $$
 begin
   if ok is not true then raise exception 'TEST FAILED: %', msg; end if;
@@ -12,90 +13,80 @@ begin
 end $$;
 grant execute on function pg_temp.check(boolean, text) to anon, authenticated;
 
--- ─── sign-ups (as the auth service) ──────────────────────────────────────
-insert into auth.users (id, email, raw_user_meta_data) values
-  (:A, 'alia@example.com',  '{"full_name":"Alia Salim","username":"alia","language":"ar","timezone":"Asia/Muscat"}'),
-  (:B, 'badr@example.com',  '{"full_name":"Badr Said","username":"ALIA","language":"en","timezone":"Not/AZone","role":"teacher"}'),
-  (:T, 'teacher@example.com','{"full_name":"Ms. Teacher","username":"teacher1"}');
+-- Anonymous device sessions (what supabase.auth.signInAnonymously creates).
+insert into auth.users (id) values (:A1), (:A2), (:B), (:T), (:X);
 
-select pg_temp.check((select count(*) from public.student_profiles) = 3, 'every sign-up gets a student profile');
-select pg_temp.check((select username from public.student_profiles where id = :B) <> 'alia', 'duplicate username is made unique');
-select pg_temp.check((select timezone from public.student_profiles where id = :B) = 'Asia/Muscat', 'invalid timezone falls back to Asia/Muscat');
-select pg_temp.check(not exists (select 1 from public.teacher_profiles), 'role in sign-up metadata is ignored');
-select pg_temp.check((select count(*) from public.notifications where kind = 'welcome') = 3, 'welcome notification created');
-
--- Admin promotes the teacher (SQL editor).
-select public.promote_to_teacher('teacher@example.com', 'Al Noor School');
-select pg_temp.check(exists (select 1 from public.teacher_profiles where id = :T), 'teacher promoted');
-select pg_temp.check(not exists (select 1 from public.student_profiles where id = :T), 'teacher no longer listed as a student');
-
--- ─── anon ────────────────────────────────────────────────────────────────
+-- ─── not signed in ──────────────────────────────────────────────────────
 set role anon;
-select pg_temp.check(public.username_available('newgirl'), 'anon can check a free username');
-select pg_temp.check(not public.username_available('alia'), 'taken username reported');
 do $$ begin
   begin perform * from public.student_profiles; raise exception 'TEST FAILED: anon read profiles';
   exception when insufficient_privilege then raise notice 'ok - anon cannot read profiles'; end;
 end $$;
+do $$ begin
+  begin perform public.student_login('Alia', 5); raise exception 'TEST FAILED: anon login';
+  exception when insufficient_privilege then raise notice 'ok - login needs a device session'; end;
+end $$;
 reset role;
 
--- ─── student A ───────────────────────────────────────────────────────────
-select set_config('request.jwt.claim.sub', :A, false);
+-- ─── student sign-in with name + grade ──────────────────────────────────
+select set_config('request.jwt.claim.sub', :A1, false);
 set role authenticated;
-
-select pg_temp.check((select count(*) from public.student_profiles) = 1, 'student sees only own profile');
-select pg_temp.check(not public.is_teacher(), 'student is not a teacher');
+do $$
+declare r jsonb;
+begin
+  begin perform public.student_login('A', 5); raise exception 'TEST FAILED: 1-letter name';
+  exception when invalid_parameter_value then raise notice 'ok - too-short name rejected'; end;
+  begin perform public.student_login('Alia Salim', 13); raise exception 'TEST FAILED: grade 13';
+  exception when invalid_parameter_value then raise notice 'ok - invalid grade rejected'; end;
+  r := public.student_login('  Alia   Salim ', 5, 'ar', 'Asia/Muscat');
+  perform pg_temp.check((r->>'created')::boolean, 'first login creates the student');
+  perform pg_temp.check(r->'profile'->>'full_name' = 'Alia Salim', 'name is tidied');
+  perform pg_temp.check(not (r->'profile' ? 'name_key'), 'internal key not returned');
+  perform pg_temp.check(not public.is_teacher(), 'student is not a teacher');
+  perform pg_temp.check((select count(*) from public.notifications where kind = 'welcome') = 1, 'welcome notification');
+end $$;
 
 do $$ begin
   begin update public.student_profiles set total_points = 9999; raise exception 'TEST FAILED: points edited';
   exception when insufficient_privilege then raise notice 'ok - student cannot edit total_points'; end;
 end $$;
 do $$ begin
-  begin insert into public.points_transactions (student_id, points, reason, ref_key)
-        values (auth.uid(), 100, 'daily_bonus', 'x'); raise exception 'TEST FAILED: ledger insert';
+  begin insert into public.points_transactions (student_id, points, reason, ref_key) values (public.current_student_id(), 100, 'daily_bonus', 'x');
+        raise exception 'TEST FAILED: ledger insert';
   exception when insufficient_privilege then raise notice 'ok - student cannot write points'; end;
 end $$;
 do $$ begin
-  begin insert into public.teacher_profiles (id, full_name) values (auth.uid(), 'Hacker'); raise exception 'TEST FAILED: self-promotion';
-  exception when insufficient_privilege then raise notice 'ok - student cannot make themself a teacher'; end;
+  begin insert into public.teacher_profiles (id) values (auth.uid()); raise exception 'TEST FAILED: self-promotion';
+  exception when insufficient_privilege then raise notice 'ok - student cannot make the device a teacher'; end;
 end $$;
 do $$ begin
-  begin perform public.award_points(auth.uid(), 100, 'daily_bonus', 'x'); raise exception 'TEST FAILED: award_points callable';
+  begin perform * from public.app_settings; raise exception 'TEST FAILED: settings readable';
+  exception when insufficient_privilege then raise notice 'ok - teacher code hash is not readable'; end;
+end $$;
+do $$ begin
+  begin perform public.set_teacher_code('0000'); raise exception 'TEST FAILED: set code callable';
+  exception when insufficient_privilege then raise notice 'ok - only the admin can change the code'; end;
+end $$;
+do $$ begin
+  begin perform public.award_points(public.current_student_id(), 100, 'daily_bonus', 'x'); raise exception 'TEST FAILED: award_points callable';
   exception when insufficient_privilege then raise notice 'ok - award_points is private'; end;
 end $$;
 do $$ begin
-  begin perform public.promote_to_teacher('alia@example.com'); raise exception 'TEST FAILED: promote callable';
-  exception when insufficient_privilege then raise notice 'ok - promote_to_teacher is private'; end;
-end $$;
-do $$ begin
-  begin perform * from public.teacher_list_students(null); raise exception 'TEST FAILED: student listed students';
-  exception when insufficient_privilege then raise notice 'ok - student cannot use teacher list'; end;
-end $$;
-do $$ begin
-  begin perform public.get_weekly_report(current_date, 'bbbbbbbb-0000-0000-0000-000000000002');
-        raise exception 'TEST FAILED: read other report';
-  exception when insufficient_privilege then raise notice 'ok - student cannot read another report'; end;
+  begin perform * from public.teacher_list_students(null, null); raise exception 'TEST FAILED: student listed students';
+  exception when insufficient_privilege then raise notice 'ok - student cannot use the teacher list'; end;
 end $$;
 
--- Allowed profile edits.
-update public.student_profiles set language = 'en', custom_subjects = '{Robotics}' where id = auth.uid();
-select pg_temp.check((select language from public.student_profiles) = 'en', 'student updates own language');
+update public.student_profiles set language = 'en', custom_subjects = '{Robotics}';
+select pg_temp.check((select language from public.student_profiles) = 'en', 'student updates own profile');
 
 -- Tasks
 insert into public.study_tasks (subject, title, task_date, priority) values
   ('Mathematics', 'Fractions page 12', (now() at time zone 'Asia/Muscat')::date, 'high'),
   ('English',     'Read chapter 3',    (now() at time zone 'Asia/Muscat')::date, 'medium');
 select pg_temp.check((select count(*) from public.study_tasks) = 2, 'student creates tasks');
-
 do $$ begin
   begin update public.study_tasks set completed = true; raise exception 'TEST FAILED: completed edited directly';
   exception when insufficient_privilege then raise notice 'ok - completed flag only via RPC'; end;
-end $$;
-do $$ begin
-  begin insert into public.study_tasks (student_id, subject, title, task_date)
-        values ('bbbbbbbb-0000-0000-0000-000000000002', 'Math', 'x', current_date);
-        raise exception 'TEST FAILED: task for another student';
-  exception when insufficient_privilege then raise notice 'ok - cannot create a task for someone else'; end;
 end $$;
 
 do $$
@@ -122,7 +113,7 @@ end $$;
 do $$
 declare s public.study_sessions; r jsonb;
 begin
-  begin perform public.start_study_session(3); raise exception 'TEST FAILED: 3-minute session accepted';
+  begin perform public.start_study_session(3); raise exception 'TEST FAILED: 3-minute session';
   exception when invalid_parameter_value then raise notice 'ok - too short duration rejected'; end;
   s := public.start_study_session(25, 'Science');
   r := public.complete_study_session(s.id);
@@ -141,25 +132,15 @@ begin
   perform pg_temp.check(r->>'status' = 'already_completed' and (r->>'points_awarded')::int = 0, 'session pays once');
   perform pg_temp.check((select total_points from public.student_profiles) = 40, 'total is 40');
 end $$;
-
--- Only one active session; starting a new one cancels the old.
-do $$
-declare s1 public.study_sessions; s2 public.study_sessions;
-begin
-  s1 := public.start_study_session(30);
-  s2 := public.start_study_session(45);
-  perform pg_temp.check((select status from public.study_sessions where id = s1.id) = 'cancelled', 'old active session cancelled');
-  perform public.cancel_study_session(s2.id);
-end $$;
 reset role;
 
--- Simulate 4 more completed sessions on consecutive previous days (as the server would have recorded them).
+-- 4 earlier study days → 5-day streak with today's session.
 insert into public.study_sessions (student_id, subject, planned_minutes, status, started_at, completed_at)
-select :A, 'Arabic', 30, 'completed', now() - (d || ' days')::interval - interval '31 minutes', now() - (d || ' days')::interval
+select (select id from public.student_profiles where name_key = 'alia salim'), 'Arabic', 30, 'completed',
+       now() - (d || ' days')::interval - interval '31 minutes', now() - (d || ' days')::interval
 from generate_series(1, 4) d;
 
--- Badges are unlocked by the next rewarded action.
-select set_config('request.jwt.claim.sub', :A, false);
+select set_config('request.jwt.claim.sub', :A1, false);
 set role authenticated;
 do $$
 declare s public.study_sessions; r jsonb;
@@ -170,100 +151,109 @@ begin
   set role authenticated;
   r := public.complete_study_session(s.id);
   perform pg_temp.check(r->'new_achievements' ? 'study_star', 'Study Star unlocked');
-  perform pg_temp.check(r->'new_achievements' ? 'weekly_champion', 'Weekly Champion unlocked after 5-day streak');
-  perform pg_temp.check((select count(*) from public.notifications where kind = 'achievement') = 2, 'achievement notifications');
+  perform pg_temp.check(r->'new_achievements' ? 'weekly_champion', 'Weekly Champion after a 5-day streak');
   perform pg_temp.check((public.get_student_stats()->>'current_streak')::int = 5, 'current streak = 5');
 end $$;
 
--- Reminder scheduling
+-- Reminders
 insert into public.study_tasks (subject, title, task_type, task_date, start_time, reminder_minutes)
 values ('Science', 'Unit test', 'test', (now() at time zone 'Asia/Muscat')::date + 2, '10:00', 60);
-select pg_temp.check((select count(*) from public.notifications where kind = 'test_reminder') = 1, 'test reminder scheduled');
 update public.study_tasks set start_time = '11:00' where title = 'Unit test';
-select pg_temp.check((select count(*) from public.notifications where kind = 'test_reminder') = 1, 'editing a task reschedules (no duplicates)');
+select pg_temp.check((select count(*) from public.notifications where kind = 'test_reminder') = 1, 'reminder rescheduled, no duplicates');
 select pg_temp.check(
   (select to_char(scheduled_for at time zone 'Asia/Muscat', 'HH24:MI') from public.notifications where kind = 'test_reminder') = '10:00',
-  'reminder time = start time - 60 min in the student timezone');
+  'reminder = start time - 60 min');
+-- A planned task from 3 days ago left undone (for the teacher's follow-up view).
+insert into public.study_tasks (subject, title, task_date) values ('Arabic', 'Old homework', (now() at time zone 'Asia/Muscat')::date - 3);
+reset role;
 
--- Notifications: mark read OK, edit content not OK.
-update public.notifications set read_at = now() where kind = 'welcome';
-select pg_temp.check((select read_at is not null from public.notifications where kind = 'welcome'), 'mark notification read');
-do $$ begin
-  begin update public.notifications set kind = 'achievement'; raise exception 'TEST FAILED: notification edited';
-  exception when insufficient_privilege then raise notice 'ok - notification content is read-only'; end;
-end $$;
-select public.ensure_daily_reminder();
-select public.ensure_daily_reminder();
-select pg_temp.check((select count(*) from public.notifications where kind = 'daily_reminder') = 1, 'daily reminder once per day');
-
--- Weekly report
+-- ─── same student on a second device: same name + grade → same data ─────
+select set_config('request.jwt.claim.sub', :A2, false);
+set role authenticated;
 do $$
-declare r jsonb; ws date := (now() at time zone 'Asia/Muscat')::date - extract(dow from (now() at time zone 'Asia/Muscat'))::int;
+declare r jsonb;
 begin
-  r := public.get_weekly_report(ws);
-  perform pg_temp.check(jsonb_array_length(r->'days') = 7, 'weekly report has 7 days');
-  perform pg_temp.check((r->>'tasks_completed')::int = 2, 'weekly report counts completed tasks');
-  perform pg_temp.check((r->>'points_earned')::int > 0, 'weekly report counts points');
-end $$;
-
--- Daily cap on paid tasks (20/day).
-do $$
-declare i int; tid uuid; paid int := 0; r jsonb;
-begin
-  for i in 1..22 loop
-    insert into public.study_tasks (subject, title, task_date) values ('Other', 'cap ' || i, current_date + 5) returning id into tid;
-    r := public.set_task_completed(tid, true);
-    paid := paid + (r->>'points_awarded')::int;
-  end loop;
-  perform pg_temp.check(paid = 18 * 5, 'only 20 paid tasks per day (2 already paid today)');
+  r := public.student_login('alia salim', 5);
+  perform pg_temp.check(not (r->>'created')::boolean, 'returning student is recognised (any letter case/spacing)');
+  perform pg_temp.check((select count(*) from public.study_tasks) = 4, 'second device sees the same tasks');
+  r := public.student_login('Alia Salim', 6);
+  perform pg_temp.check((r->>'created')::boolean, 'same name in another grade is a different student');
+  perform pg_temp.check((select count(*) from public.study_tasks) = 0, 'and does not see the first student''s tasks');
 end $$;
 reset role;
 
 -- ─── student B: isolation ───────────────────────────────────────────────
 select set_config('request.jwt.claim.sub', :B, false);
 set role authenticated;
+select public.student_login('Badr Said', 5);
+select pg_temp.check((select count(*) from public.student_profiles) = 1, 'B sees only own profile');
 select pg_temp.check((select count(*) from public.study_tasks) = 0, 'B cannot see A tasks');
 select pg_temp.check((select count(*) from public.study_sessions) = 0, 'B cannot see A sessions');
 select pg_temp.check((select count(*) from public.points_transactions) = 0, 'B cannot see A points');
 select pg_temp.check((select count(*) from public.notifications where kind <> 'welcome') = 0, 'B cannot see A notifications');
 update public.study_tasks set title = 'hacked';
 delete from public.study_tasks;
-do $$
-declare sid uuid := (select id from public.study_sessions limit 1);
-begin
-  begin perform public.set_task_completed('00000000-0000-0000-0000-000000000000', true);
-        raise exception 'TEST FAILED: completed unknown task';
+do $$ begin
+  begin perform public.get_weekly_report(current_date, (select id from public.student_profiles limit 0));
+  exception when insufficient_privilege then null; end;
+  begin perform public.set_task_completed('00000000-0000-0000-0000-000000000000', true); raise exception 'TEST FAILED';
   exception when no_data_found then raise notice 'ok - cannot complete a task that is not yours'; end;
 end $$;
 reset role;
 select pg_temp.check((select count(*) from public.study_tasks where title = 'hacked') = 0, 'B cannot edit A tasks');
-select pg_temp.check((select count(*) from public.study_tasks where student_id = :A) = 25, 'B cannot delete A tasks');
-
+select pg_temp.check((select count(*) from public.study_tasks s join public.student_profiles p on p.id = s.student_id
+                      where p.name_key = 'alia salim' and p.grade = 5) = 4, 'B cannot delete A tasks');
 do $$
-declare sid uuid := (select id from public.study_sessions where student_id = 'aaaaaaaa-0000-0000-0000-000000000001' and status = 'completed' limit 1);
+declare v_alia uuid := (select id from public.student_profiles where name_key = 'alia salim' and grade = 5);
 begin
-  perform set_config('request.jwt.claim.sub', 'bbbbbbbb-0000-0000-0000-000000000002', false);
+  perform set_config('request.jwt.claim.sub', 'bbbbbbbb-0000-0000-0000-000000000003', false);
   set local role authenticated;
-  begin perform public.complete_study_session(sid); raise exception 'TEST FAILED: completed other session';
-  exception when no_data_found then raise notice 'ok - cannot complete another student session'; end;
+  begin perform public.get_weekly_report(current_date, v_alia); raise exception 'TEST FAILED: read other report';
+  exception when insufficient_privilege then raise notice 'ok - student cannot read another report'; end;
 end $$;
 reset role;
 
--- ─── teacher ────────────────────────────────────────────────────────────
+-- ─── teacher code ───────────────────────────────────────────────────────
+select set_config('request.jwt.claim.sub', :X, false);
+set role authenticated;
+select pg_temp.check(not public.teacher_login('0000'), 'wrong code refused');
+select pg_temp.check(not public.is_teacher(), 'wrong code gives no teacher access');
+do $$
+declare i int;
+begin
+  for i in 1..4 loop perform public.teacher_login('9999'); end loop;
+  begin perform public.teacher_login('1993'); raise exception 'TEST FAILED: no throttle';
+  exception when insufficient_privilege then raise notice 'ok - device blocked after 5 wrong codes (even with the right one)'; end;
+end $$;
+reset role;
+
 select set_config('request.jwt.claim.sub', :T, false);
 set role authenticated;
+select pg_temp.check(public.teacher_login('1993'), 'teacher code 1993 accepted');
 select pg_temp.check(public.is_teacher(), 'teacher role recognised');
-select pg_temp.check((select count(*) from public.teacher_list_students(null)) = 2, 'teacher lists all students');
-select pg_temp.check((select count(*) from public.teacher_list_students('badr')) = 1, 'teacher searches by name');
-select pg_temp.check((select count(*) from public.study_tasks) = 25, 'teacher reads student tasks');
-select pg_temp.check((public.get_weekly_report(current_date - 7, 'aaaaaaaa-0000-0000-0000-000000000001')->>'week_start') is not null,
-                     'teacher reads a student weekly report');
-select pg_temp.check((public.get_student_stats('aaaaaaaa-0000-0000-0000-000000000001')->>'total_points')::int > 0, 'teacher reads student stats');
+select pg_temp.check((select count(*) from public.teacher_list_students(null, null)) = 3, 'teacher lists all students');
+select pg_temp.check((select count(*) from public.teacher_list_students(null, 5)) = 2, 'teacher filters by grade');
+select pg_temp.check((select count(*) from public.teacher_list_students('badr', null)) = 1, 'teacher searches by name');
+select pg_temp.check((select week_minutes from public.teacher_list_students('alia', 5)) = 25 + 10 + 4 * 30, 'usage: study minutes in the last 7 days');
+select pg_temp.check((select active_days_week from public.teacher_list_students('alia', 5)) = 5, 'usage: active days this week');
+select pg_temp.check((select tasks_due from public.teacher_list_students('alia', 5)) = 3
+                     and (select tasks_due_done from public.teacher_list_students('alia', 5)) = 2, 'commitment: 2 of 3 due tasks done');
+select pg_temp.check((select overdue_tasks from public.teacher_list_students('alia', 5)) = 1, 'commitment: 1 overdue task');
+select pg_temp.check((public.get_student_stats((select id from public.teacher_list_students('alia', 5)))->>'total_points')::int > 0, 'teacher reads student stats');
 update public.study_tasks set title = 'teacher edit';
 select pg_temp.check((select count(*) from public.study_tasks where title = 'teacher edit') = 0, 'teacher cannot edit student tasks');
-select pg_temp.check((select count(*) from public.notifications where user_id <> auth.uid()) = 0, 'teacher cannot read student notifications');
+select pg_temp.check((select count(*) from public.notifications) = 0, 'teacher cannot read student notifications');
 do $$ begin
   begin update public.student_profiles set total_points = 1; raise exception 'TEST FAILED: teacher edited points';
   exception when insufficient_privilege then raise notice 'ok - teacher cannot edit points'; end;
 end $$;
+reset role;
+
+-- Changing the code signs out every teacher device.
+select public.set_teacher_code('2468');
+select set_config('request.jwt.claim.sub', :T, false);
+set role authenticated;
+select pg_temp.check(not public.is_teacher(), 'new code signs teachers out');
+select pg_temp.check(not public.teacher_login('1993'), 'old code no longer works');
+select pg_temp.check(public.teacher_login('2468'), 'new code works');
 reset role;

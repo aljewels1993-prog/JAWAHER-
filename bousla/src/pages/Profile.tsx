@@ -1,13 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { api, cloudConfigured } from '../api';
-import { subjectLabel, useI18n } from '../i18n';
+import { subjectLabel, useI18n, type MessageKey } from '../i18n';
 import { useAuth } from '../state/auth';
 import { useFeedback } from '../state/feedback';
-import { PasswordInput, errorText } from '../components/ui';
+import { errorText } from '../components/ui';
 import { Mascot } from '../components/Mascot';
 import { useInstall } from '../lib/install';
 import { isIos } from '../lib/browserNotify';
 import { AlertsPermission } from './Notifications';
+import { GRADES } from './auth/AuthPages';
 
 export default function ProfilePage() {
   const { t, lang } = useI18n();
@@ -15,30 +16,22 @@ export default function ProfilePage() {
   const { toast } = useFeedback();
   const install = useInstall();
   const student = account?.student;
-  const teacher = account?.teacher;
-  const [name, setName] = useState(student?.full_name ?? teacher?.full_name ?? '');
-  const [username, setUsername] = useState(student?.username ?? '');
-  const [school, setSchool] = useState(teacher?.school_name ?? '');
+  const teacher = account?.role === 'teacher';
+  const [name, setName] = useState(student?.full_name ?? '');
+  const [grade, setGrade] = useState(String(student?.grade ?? ''));
   const [busy, setBusy] = useState(false);
   const [newSubject, setNewSubject] = useState('');
-  const [pw, setPw] = useState('');
-  const [showPw, setShowPw] = useState(false);
 
   const saveProfile = async (e: FormEvent) => {
     e.preventDefault();
-    if (name.trim().length < 2) { toast(t('error.invalid_name'), 'error'); return; }
+    if (name.trim().length < 2) { toast(t('login.nameRequired'), 'error'); return; }
     setBusy(true);
     try {
-      if (teacher) await api.updateTeacherProfile({ full_name: name.trim(), school_name: school.trim() || null });
-      else {
-        const u = username.trim().toLowerCase();
-        if (!/^[a-z0-9_.]{3,20}$/.test(u)) throw new Error('invalid');
-        await api.updateProfile({ full_name: name.trim(), username: u });
-      }
+      await api.updateProfile({ full_name: name.trim().replace(/\s+/g, ' '), grade: Number(grade) });
       await refresh();
       toast(t('profile.saved'), 'success');
     } catch (err) {
-      toast(err instanceof Error && err.message === 'invalid' ? t('error.invalid_username') : errorText(t, err), 'error');
+      toast(errorText(t, err), 'error');
     } finally {
       setBusy(false);
     }
@@ -53,58 +46,36 @@ export default function ProfilePage() {
     }
   };
 
-  const changePassword = async (e: FormEvent) => {
-    e.preventDefault();
-    if (pw.length < 8) { toast(t('error.weak_password'), 'error'); return; }
-    try {
-      await api.updatePassword(pw);
-      setPw('');
-      toast(t('profile.passwordSaved'), 'success');
-    } catch (err) {
-      toast(errorText(t, err), 'error');
-    }
-  };
-
-  const initial = (name || '?').trim().charAt(0).toUpperCase();
-
   return (
     <div className="page">
       <div className="page-head">
-        <div className="avatar big" aria-hidden="true">{initial}</div>
+        <div className="avatar big" aria-hidden="true">{teacher ? '👩‍🏫' : (student?.full_name ?? '?').charAt(0)}</div>
         <div className="grow">
-          <h1>{name}</h1>
-          <p>{teacher ? `👩‍🏫 ${t('profile.role.teacher')}` : `🎒 ${t('profile.role.student')} · @${student?.username}`}</p>
+          <h1>{teacher ? t('profile.role.teacher') : student?.full_name}</h1>
+          <p>{teacher ? `🔐 ${t('profile.teacherNote')}` : `🎒 ${t(`grade.${student?.grade}` as MessageKey)}`}</p>
         </div>
       </div>
 
       <div className="grid-2">
-        <section className="card" aria-labelledby="acc-h">
-          <h2 id="acc-h">👤 {t('profile.account')}</h2>
-          <form onSubmit={saveProfile}>
-            <div className="field">
-              <label htmlFor="p-name">{t('auth.fullName')}</label>
-              <input id="p-name" className="input" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            {student && (
+        {student && (
+          <section className="card" aria-labelledby="acc-h">
+            <h2 id="acc-h">👤 {t('profile.account')}</h2>
+            <form onSubmit={saveProfile}>
               <div className="field">
-                <label htmlFor="p-user">{t('auth.username')}</label>
-                <input id="p-user" className="input" dir="ltr" autoCapitalize="none" maxLength={20} value={username} onChange={(e) => setUsername(e.target.value)} />
-                <span className="hint">{t('auth.usernameHint')}</span>
+                <label htmlFor="p-name">{t('login.name')}</label>
+                <input id="p-name" className="input" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
               </div>
-            )}
-            {teacher && (
               <div className="field">
-                <label htmlFor="p-school">{t('profile.school')}</label>
-                <input id="p-school" className="input" maxLength={120} value={school} onChange={(e) => setSchool(e.target.value)} />
+                <label htmlFor="p-grade">{t('profile.grade')}</label>
+                <select id="p-grade" className="input" value={grade} onChange={(e) => setGrade(e.target.value)}>
+                  {GRADES.map((g) => <option key={g} value={g}>{t(`grade.${g}` as MessageKey)}</option>)}
+                </select>
+                <span className="hint">{t('profile.nameHint')}</span>
               </div>
-            )}
-            <div className="field">
-              <span className="label">{t('profile.email')}</span>
-              <span dir="ltr" style={{ fontWeight: 700, color: 'var(--ink-2)', textAlign: 'start' }}>{account?.email}</span>
-            </div>
-            <button className="btn" disabled={busy}>{busy ? t('common.saving') : t('profile.saveProfile')}</button>
-          </form>
-        </section>
+              <button className="btn" disabled={busy}>{busy ? t('common.saving') : t('profile.saveProfile')}</button>
+            </form>
+          </section>
+        )}
 
         <section className="card tint-purple" aria-labelledby="lang-h">
           <h2 id="lang-h">🌐 {t('lang.label')}</h2>
@@ -140,18 +111,6 @@ export default function ProfilePage() {
             </form>
           </section>
         )}
-
-        <section className="card" aria-labelledby="pw-h">
-          <h2 id="pw-h">🔑 {t('profile.password')}</h2>
-          <form onSubmit={changePassword}>
-            <div className="field">
-              <label htmlFor="p-pw">{t('auth.newPassword')}</label>
-              <PasswordInput id="p-pw" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} show={showPw} onToggle={() => setShowPw(!showPw)} toggleLabel={t('auth.showPassword')} />
-              <span className="hint">{t('auth.passwordHint')}</span>
-            </div>
-            <button className="btn secondary" disabled={!pw}>{t('common.save')}</button>
-          </form>
-        </section>
 
         <section className="card tint-mint" aria-labelledby="inst-h">
           <h2 id="inst-h">📲 {t('profile.install')}</h2>

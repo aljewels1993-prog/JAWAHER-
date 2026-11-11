@@ -7,24 +7,24 @@ export type TaskType = 'homework' | 'study' | 'test';
 export interface StudentProfile {
   id: string;
   full_name: string;
-  username: string;
+  /** School grade 1–12. Name + grade identify a student. */
+  grade: number;
   language: Lang;
   timezone: string;
   custom_subjects: string[];
   total_points: number;
+  last_seen_at: string;
   created_at: string;
 }
 
+/** A device signed in with the teacher code. */
 export interface TeacherProfile {
   id: string;
-  full_name: string;
-  school_name: string | null;
   language: Lang;
 }
 
 export interface Account {
   userId: string;
-  email: string | null;
   role: Role;
   student: StudentProfile | null;
   teacher: TeacherProfile | null;
@@ -114,6 +114,9 @@ export interface StudentStats {
   sessions_completed: number;
   study_minutes: number;
   tasks_completed: number;
+  /** Tasks dated today or earlier, and how many of them are done. */
+  tasks_due: number;
+  tasks_due_done: number;
   today_planned: number;
   today_completed: number;
   today_minutes: number;
@@ -145,45 +148,47 @@ export interface WeeklyReport {
   badges: string[];
 }
 
+/** One student in the teacher dashboard: usage, benefit and commitment. "This week" = last 7 days. */
 export interface TeacherStudentRow {
   id: string;
   full_name: string;
-  username: string;
+  grade: number;
   total_points: number;
-  tasks_completed: number;
   sessions_completed: number;
   study_minutes: number;
   week_minutes: number;
+  week_sessions: number;
+  active_days_week: number;
+  tasks_planned: number;
+  tasks_done: number;
+  /** Tasks dated today or earlier. */
+  tasks_due: number;
+  tasks_due_done: number;
+  week_tasks_due: number;
+  week_tasks_done: number;
+  /** Past tasks left undone. */
+  overdue_tasks: number;
   badges: number;
+  current_streak: number;
   last_active: string | null;
   joined_at: string;
 }
 
-export interface SignUpInput {
-  fullName: string;
-  username: string;
-  email: string;
-  password: string;
-  language: Lang;
-  timezone: string;
-}
-
-export type ProfilePatch = Partial<Pick<StudentProfile, 'full_name' | 'username' | 'language' | 'custom_subjects'>>;
-export type TeacherPatch = Partial<Pick<TeacherProfile, 'full_name' | 'school_name' | 'language'>>;
+export type ProfilePatch = Partial<Pick<StudentProfile, 'full_name' | 'grade' | 'language' | 'custom_subjects'>>;
+export type TeacherPatch = Partial<Pick<TeacherProfile, 'language'>>;
 
 /** Everything the UI needs from a backend. */
 export interface Api {
   readonly mode: 'cloud' | 'device';
 
   getAccount(): Promise<Account | null>;
-  /** Calls back on sign-in/out and on PASSWORD_RECOVERY. Returns an unsubscribe function. */
+  /** Calls back on sign-in/out. Returns an unsubscribe function. */
   onAuthChange(cb: (event: string) => void): () => void;
-  signUp(input: SignUpInput): Promise<{ needsConfirmation: boolean }>;
-  signIn(email: string, password: string): Promise<void>;
+  /** Student sign-in with name + grade; creates the student the first time. */
+  studentLogin(name: string, grade: number, language: Lang, timezone: string): Promise<{ created: boolean }>;
+  /** Teacher sign-in with the shared teacher code. */
+  teacherLogin(code: string): Promise<void>;
   signOut(): Promise<void>;
-  requestPasswordReset(email: string): Promise<void>;
-  updatePassword(password: string): Promise<void>;
-  usernameAvailable(username: string): Promise<boolean>;
   updateProfile(patch: ProfilePatch): Promise<StudentProfile>;
   updateTeacherProfile(patch: TeacherPatch): Promise<TeacherProfile>;
 
@@ -210,7 +215,7 @@ export interface Api {
 
   getWeeklyReport(weekStart: string, studentId?: string): Promise<WeeklyReport>;
 
-  listStudents(search?: string): Promise<TeacherStudentRow[]>;
+  listStudents(search?: string, grade?: number): Promise<TeacherStudentRow[]>;
   getStudentProfile(id: string): Promise<StudentProfile | null>;
 }
 

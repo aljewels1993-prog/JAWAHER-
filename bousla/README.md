@@ -8,14 +8,14 @@ students, with a separate teacher dashboard. React + TypeScript + Vite, Supabase
 
 | Area | What it does |
 |---|---|
-| Accounts | Sign up (full name, username, email, password), log in/out, password reset by email, sessions kept by Supabase Auth |
+| Sign-in | **Students:** full name + grade only (no e-mail, no password). **Teacher:** a shared teacher code (default `1993`). |
 | Home | Greeting, date, points, tasks done, study time, level, daily progress ring, today's schedule, upcoming tasks, message of the day, Bousla the mascot with reactions |
 | Planner | Sunday–Thursday week view, day view, upcoming list; subjects (7 defaults + custom), type, date, start time, duration, priority, reminder; edit / delete / complete |
 | Timer | 25 / 30 / 45 / custom (10–120 min); start / pause / resume / reset; circular progress; break offer; sound + notification; keeps time across pages, sleeping tabs and refreshes |
 | Rewards | +10 per finished session, +5 per task, +20 when every task of a day (≥ 2) is done; 5 badges; 7 levels; points history. **Computed on the server.** |
 | Notifications | Homework / study / test reminders, daily reminder, session, bonus and badge notifications; read / delete; optional browser alerts |
 | Reports | Weekly study time, tasks, sessions, points, top subject, daily chart, subject breakdown, badges; browse past weeks |
-| Teacher | Student list with search, engagement, per-student profile, badges, weekly reports and tasks (read-only) |
+| Teacher | Most active students this week, students who need follow-up, and for every student: usage (study time, active days), commitment (share of planned tasks actually done, overdue tasks) and benefit (points, badges, streak). Filter by grade, search, sort; per-student reports (read-only) |
 
 ## 1. Run it locally
 
@@ -37,13 +37,20 @@ For real use, set up Supabase.
 2. **SQL Editor → New query**, paste all of
    `supabase/migrations/20261110000000_bousla_schema.sql`, and run it.
    (With the Supabase CLI: `supabase link` then `supabase db push`.)
-3. **Authentication → URL Configuration**
-   - *Site URL*: your app's address, e.g. `https://bousla.netlify.app`
-   - *Redirect URLs*: add `https://YOUR-SITE/login` and `https://YOUR-SITE/reset-password`
-     (and `http://localhost:5173/*` for local development).
-4. **Authentication → Providers → Email**: keep it enabled. "Confirm email" can stay
-   on. Students then confirm their address before their first login.
-5. **Project Settings → API**: copy the *Project URL* and the **anon public** key into
+3. **Authentication → Sign In / Providers → "Allow anonymous sign-ins": turn it ON.**
+   Each device gets a private, anonymous session. The student's name + grade (or the
+   teacher code) is then checked by the database.
+4. **Authentication → Rate Limits:** raise *anonymous sign-ins per hour* (default 30
+   per IP address). A whole class on the school Wi-Fi shares one IP address, so set it
+   to at least 100 per hour.
+5. **Change the teacher code** (the default is `1993`) in the SQL editor:
+
+   ```sql
+   select public.set_teacher_code('your-new-code');
+   ```
+
+   This also signs out every device that used the old code.
+6. **Project Settings → API**: copy the *Project URL* and the **anon public** key into
    `.env.local` (or your host's environment variables):
 
    ```
@@ -54,27 +61,26 @@ For real use, set up Supabase.
    ⚠️ Never put the `service_role` key in the app. Anything prefixed `VITE_` is
    visible in the browser.
 
-### Making a teacher account
+### How sign-in works
 
-Everyone who signs up is a **student**. A teacher role can only be given by the
-project owner, in the SQL editor:
+- **Student:** types their full name and chooses a grade (1–12). The first time,
+  this creates the student. Later, the same name + grade (on any device) opens the
+  same plan, points and badges. Letter case and extra spaces don't matter.
+- **Teacher:** opens the *Teacher* tab and enters the teacher code. The code is
+  checked on the server against a bcrypt hash. After 5 wrong codes, that device
+  is blocked for 15 minutes, and the whole school is blocked after 30 wrong codes.
 
-```sql
--- The teacher first signs up normally in the app, then:
-select public.promote_to_teacher('teacher@school.om', 'School name');
-
--- To undo:
-select public.demote_teacher('teacher@school.om');
-```
-
-Students cannot call these functions. They cannot write to `teacher_profiles`, and
-the role in sign-up data is ignored.
+> **Trade-off of the simple sign-in:** there is no password, so anyone who types a
+> student's exact name and grade opens that student's plan. Ask students to use
+> their full name (first, father's and family name). For more protection, a 4-digit
+> student PIN can be added later.
 
 ## 3. Security model
 
-- **Row Level Security on every table.** Students read and write only their own rows.
-  Teachers can *read* student progress, but cannot change it and cannot read students'
-  notifications.
+- **Row Level Security on every table.** A device sees only the student it is linked
+  to (`student_devices`, which no client can read or write). Teacher devices can
+  *read* student progress, but cannot change it and cannot read students'
+  notifications. Nobody can read the teacher code hash.
 - **Points can't be sent from the browser.** `points_transactions` and
   `student_profiles.total_points` have no client write access. Rewards are paid only
   inside these SQL functions:
@@ -87,15 +93,16 @@ the role in sign-up data is ignored.
     with repeated clicks, refreshes or parallel requests.
 - Students can edit their tasks, but the `completed` column can only be changed
   through the RPC (column-level grants).
-- Passwords are handled by Supabase Auth and are never stored by the app. In preview
-  mode they are stored as salted PBKDF2 hashes.
+- In preview mode the teacher code is checked in the browser (set it with
+  `VITE_TEACHER_CODE` at build time). That is fine for a demo, but use Supabase for a
+  real class.
 
 ## 4. Tests
 
 ```bash
-npm test          # 31 unit tests: timer maths, rewards, streaks, levels, i18n, device backend
+npm test          # 32 unit tests: timer maths, rewards, streaks, levels, i18n, sign-in, teacher list
 npm run test:db   # runs the real migration on a throwaway PostgreSQL and checks
-                  # RLS, roles, rewards and duplicate prevention (60+ checks)
+                  # sign-in, teacher code + throttling, RLS, rewards, follow-up numbers (70+ checks)
 npm run typecheck
 npm run build
 ```
