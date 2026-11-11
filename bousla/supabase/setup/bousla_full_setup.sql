@@ -133,10 +133,11 @@ create table public.teacher_login_attempts (
 );
 create index teacher_login_attempts_time_idx on public.teacher_login_attempts (created_at);
 
--- Default teacher code: 1993. CHANGE IT after installing:
+-- No known default teacher code: a random, unguessable code is set at install.
+-- Set the real code after installing (setup/change_teacher_code_template.sql or:)
 --   select public.set_teacher_code('your-new-code');
 insert into public.app_settings (key, value)
-values ('teacher_code_hash', extensions.crypt('1993', extensions.gen_salt('bf')));
+values ('teacher_code_hash', extensions.crypt(encode(extensions.gen_random_bytes(24), 'hex'), extensions.gen_salt('bf')));
 
 -- ─── 2. study_tasks ────────────────────────────────────────────────────────
 create table public.study_tasks (

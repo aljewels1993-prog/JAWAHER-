@@ -40,17 +40,17 @@ describe('device backend rewards', () => {
 
   it('has no teacher sign-in unless a preview code is configured', async () => {
     const api = createDeviceApi(memoryStorage());
-    await expect(api.teacherLogin('1993')).rejects.toMatchObject({ code: 'invalid_code' });
+    await expect(api.teacherLogin('Test-Code-1357')).rejects.toMatchObject({ code: 'invalid_code' });
     await expect(api.teacherLogin('')).rejects.toMatchObject({ code: 'invalid_code' });
   });
 
   it('checks the teacher code and blocks guessing', async () => {
-    const api = createDeviceApi(memoryStorage(), '1993');
+    const api = createDeviceApi(memoryStorage(), 'Test-Code-1357');
     await expect(api.teacherLogin('0000')).rejects.toMatchObject({ code: 'invalid_code' });
     for (let i = 0; i < 4; i++) await api.teacherLogin('1111').catch(() => {});
-    await expect(api.teacherLogin('1993')).rejects.toMatchObject({ code: 'too_many_attempts' });
+    await expect(api.teacherLogin('Test-Code-1357')).rejects.toMatchObject({ code: 'too_many_attempts' });
     vi.setSystemTime(new Date(2026, 10, 10, 15, 20));
-    await api.teacherLogin('1993');
+    await api.teacherLogin('Test-Code-1357');
     expect((await api.getAccount())?.role).toBe('teacher');
   });
 
@@ -84,7 +84,7 @@ describe('device backend rewards', () => {
   });
 
   it('keeps students apart and shows the teacher who finishes planned tasks', async () => {
-    const api = createDeviceApi(memoryStorage(), '1993');
+    const api = createDeviceApi(memoryStorage(), 'Test-Code-1357');
     await login(api);
     const done = await api.createTask(task());
     await api.createTask(task({ title: 'Old homework', task_date: '2026-11-08' }));
@@ -95,7 +95,7 @@ describe('device backend rewards', () => {
     expect(await api.listTasks('2000-01-01', '2100-01-01')).toHaveLength(0);
     await expect(api.listStudents()).rejects.toMatchObject({ code: 'forbidden' });
     await api.signOut();
-    await api.teacherLogin('1993');
+    await api.teacherLogin('Test-Code-1357');
     const rows = await api.listStudents(undefined, 5);
     expect(rows.map((r) => r.full_name)).toEqual(['Alia Salim', 'Badr Said']);
     expect(rows[0]).toMatchObject({ tasks_planned: 3, tasks_due: 2, tasks_due_done: 1, overdue_tasks: 1, grade: 5 });

@@ -10,7 +10,7 @@
     "dev": "vite --host",
     "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview --host",
-    "build:artifact": "VITE_TEACHER_CODE=${VITE_TEACHER_CODE:-1993} vite build --mode artifact",
+    "build:artifact": "vite build --mode artifact",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:db": "bash supabase/tests/run-local.sh",

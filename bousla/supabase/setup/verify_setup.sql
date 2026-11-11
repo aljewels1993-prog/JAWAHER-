@@ -30,7 +30,7 @@ select 'badges catalogue', case when count(*) = 5 then '✅ 5 badges' else '❌ 
 from public.achievements
 union all
 select 'teacher code', case when exists (select 1 from public.app_settings where key = 'teacher_code_hash')
-                            then '✅ set (default 1993 — change it with set_teacher_code)' else '❌ missing' end
+                            then '✅ set' else '❌ missing' end
 union all
 select 'students cannot write points',
        case when has_table_privilege('authenticated', 'public.points_transactions', 'INSERT') then '❌ INSERT is allowed'

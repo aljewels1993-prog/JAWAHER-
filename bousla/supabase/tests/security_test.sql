@@ -213,6 +213,9 @@ begin
 end $$;
 reset role;
 
+-- The install seeds a random unknown code; the admin sets the real one.
+select public.set_teacher_code('Test-Code-1357');
+
 -- ─── teacher code ───────────────────────────────────────────────────────
 select set_config('request.jwt.claim.sub', :X, false);
 set role authenticated;
@@ -222,14 +225,14 @@ do $$
 declare i int;
 begin
   for i in 1..4 loop perform public.teacher_login('9999'); end loop;
-  begin perform public.teacher_login('1993'); raise exception 'TEST FAILED: no throttle';
+  begin perform public.teacher_login('Test-Code-1357'); raise exception 'TEST FAILED: no throttle';
   exception when insufficient_privilege then raise notice 'ok - device blocked after 5 wrong codes (even with the right one)'; end;
 end $$;
 reset role;
 
 select set_config('request.jwt.claim.sub', :T, false);
 set role authenticated;
-select pg_temp.check(public.teacher_login('1993'), 'teacher code 1993 accepted');
+select pg_temp.check(public.teacher_login('Test-Code-1357'), 'teacher code accepted');
 select pg_temp.check(public.is_teacher(), 'teacher role recognised');
 select pg_temp.check((select count(*) from public.teacher_list_students(null, null)) = 3, 'teacher lists all students');
 select pg_temp.check((select count(*) from public.teacher_list_students(null, 5)) = 2, 'teacher filters by grade');
@@ -254,7 +257,7 @@ select public.set_teacher_code('2468');
 select set_config('request.jwt.claim.sub', :T, false);
 set role authenticated;
 select pg_temp.check(not public.is_teacher(), 'new code signs teachers out');
-select pg_temp.check(not public.teacher_login('1993'), 'old code no longer works');
+select pg_temp.check(not public.teacher_login('Test-Code-1357'), 'old code no longer works');
 select pg_temp.check(public.teacher_login('2468'), 'new code works');
 reset role;
 

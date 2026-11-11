@@ -10,7 +10,7 @@ students, with a separate teacher dashboard. React + TypeScript + Vite, Supabase
 
 | Area | What it does |
 |---|---|
-| Sign-in | **Students:** full name + grade only (no e-mail, no password). **Teacher:** a shared teacher code (default `1993`). |
+| Sign-in | **Students:** full name + grade only (no e-mail, no password). **Teacher:** a shared teacher code set by the owner. |
 | Home | Greeting, date, points, tasks done, study time, level, daily progress ring, today's schedule, upcoming tasks, message of the day, Bousla the mascot with reactions |
 | Planner | Sunday–Thursday week view, day view, upcoming list; subjects (7 defaults + custom), type, date, start time, duration, priority, reminder; edit / delete / complete |
 | Timer | 25 / 30 / 45 / custom (10–120 min); start / pause / resume / reset; circular progress; break offer; sound + notification; keeps time across pages, sleeping tabs and refreshes |
@@ -53,7 +53,7 @@ All of these are done once, in the Supabase dashboard of
 3. **Authentication → Rate Limits:** raise *anonymous sign-ins per hour* (the default
    is 30 per IP address). A whole class on the school Wi-Fi shares one IP address, so
    use 100 or more.
-4. **Change the teacher code** (the default is `1993`) in the SQL editor:
+4. **Set the teacher code** (the install starts with a random code nobody knows) in the SQL editor:
 
    ```sql
    select public.set_teacher_code('your-new-code');

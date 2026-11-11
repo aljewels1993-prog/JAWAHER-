@@ -1,12 +1,13 @@
 // BOUSLA live check against a real Supabase project (uses only the publishable key).
-// Usage:  VITE_SUPABASE_URL=… VITE_SUPABASE_PUBLISHABLE_KEY=… TEACHER_CODE=1993 npm run test:live
+// Usage:  VITE_SUPABASE_URL=… VITE_SUPABASE_PUBLISHABLE_KEY=… TEACHER_CODE=<your code> npm run test:live
 // Optional: WAIT_SESSION=1 waits 10 minutes to also test a real study session (+10).
 // It creates two test students ("BOUSLA Test …", grade 12) and deletes them at the end.
 import { createClient } from '@supabase/supabase-js';
 
 const url = process.env.VITE_SUPABASE_URL;
 const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-const teacherCode = process.env.TEACHER_CODE || '1993';
+const teacherCode = process.env.TEACHER_CODE;
+if (!teacherCode) { console.error('Set TEACHER_CODE (needed to view and remove the test students)'); process.exit(2); }
 if (!url || !key) { console.error('Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY'); process.exit(2); }
 
 let failed = 0;
