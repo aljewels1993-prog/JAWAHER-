@@ -20,7 +20,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
   const fail = (error: { message?: string; code?: string } | null): never => {
     const msg = (error?.message || '').toLowerCase();
     const code = error?.code || '';
-    for (const known of ['invalid_name', 'invalid_grade', 'too_many_attempts', 'name_taken', 'student_not_found']) if (msg.includes(known)) throw new ApiError(known);
+    for (const known of ['invalid_name', 'invalid_grade', 'invalid_pin', 'pin_locked', 'too_many_attempts', 'name_taken', 'student_not_found']) if (msg.includes(known)) throw new ApiError(known);
     if (msg.includes('anonymous sign-ins are disabled')) throw new ApiError('anon_disabled');
     if (msg.includes('invalid api key') || msg.includes('no api key') || (error as { status?: number } | null)?.status === 401) throw new ApiError('bad_key');
     if (code.startsWith('over_') || msg.includes('rate limit')) throw new ApiError('rate_limited');
@@ -83,10 +83,12 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
       return () => data.subscription.unsubscribe();
     },
 
-    async studentLogin(name, grade, language, timezone) {
+    async studentLogin(name, grade, pin, language, timezone) {
       await ensureSession();
-      const r = await rpc<{ created: boolean }>('student_login', { p_name: name, p_grade: grade, p_language: language, p_timezone: timezone });
-      return { created: !!r.created };
+      const r = await rpc<{ status: string; created?: boolean; pin_set?: boolean }>('student_login',
+        { p_name: name, p_grade: grade, p_pin: pin, p_language: language, p_timezone: timezone });
+      if (r.status === 'wrong_pin') throw new ApiError('wrong_pin');
+      return { created: !!r.created, pinSet: !!r.pin_set };
     },
 
     async teacherLogin(code) {
@@ -231,6 +233,14 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
 
     async teacherDeleteStudent(id) {
       await rpc('teacher_delete_student', { p_student: id });
+    },
+
+    async teacherStudentHasPin(id) {
+      return rpc<boolean>('teacher_student_has_pin', { p_student: id });
+    },
+
+    async teacherResetStudentPin(id) {
+      await rpc('teacher_reset_student_pin', { p_student: id });
     },
   };
 }

@@ -27,6 +27,15 @@ interface DB {
   points: DevicePoints[];
   badges: DeviceBadge[];
   notifications: DeviceNotification[];
+  /** PIN hashes and wrong-PIN times per student (same rules as the server). */
+  pins?: Record<string, { salt: string; hash: string | null; resetAt: number; fails: number[] }>;
+}
+
+async function hashPin(pin: string, salt: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc.encode(salt), iterations: 100_000, hash: 'SHA-256' }, key, 256);
+  return [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 const DB_KEY = 'bousla.device.db.v2';
@@ -142,23 +151,42 @@ export function createDeviceApi(storage: Storage = localStorage, teacherCode = '
       return () => listeners.delete(cb);
     },
 
-    async studentLogin(name: string, grade: number, language: Lang, timezone: string) {
+    async studentLogin(name: string, grade: number, pin: string, language: Lang, timezone: string) {
       const full = tidyName(name);
       if (full.length < 2 || full.length > 80) throw new ApiError('invalid_name');
       if (!Number.isInteger(grade) || grade < 1 || grade > 12) throw new ApiError('invalid_grade');
+      if (!/^[0-9]{4,6}$/.test(pin)) throw new ApiError('invalid_pin');
       const db = load();
+      db.pins ??= {};
       let s = db.students.find((x) => nameKey(x.full_name) === nameKey(full) && x.grade === grade);
       const created = !s;
+      let pinSet = false;
       if (!s) {
         s = { id: uuid(), full_name: full, grade, language, timezone, custom_subjects: [], total_points: 0, last_seen_at: nowIso(), created_at: nowIso() };
         db.students.push(s);
         notify(db, s.id, 'welcome', { name: full }, 'welcome');
       }
+      const now = Date.now();
+      const rec = db.pins[s.id] ?? { salt: uuid(), hash: null, resetAt: 0, fails: [] };
+      const since = Math.max(rec.resetAt, now - 86_400_000);
+      const recent = rec.fails.filter((t) => t > since);
+      if (recent.filter((t) => t > Math.max(since, now - 15 * 60_000)).length >= 5 || recent.length >= 20) throw new ApiError('pin_locked');
+      if (!rec.hash) {
+        rec.salt = uuid();
+        rec.hash = await hashPin(pin, rec.salt);
+        pinSet = true;
+      } else if ((await hashPin(pin, rec.salt)) !== rec.hash) {
+        rec.fails = [...recent, now];
+        db.pins[s.id] = rec;
+        save(db);
+        throw new ApiError('wrong_pin');
+      }
+      db.pins[s.id] = rec;
       s.last_seen_at = nowIso();
       save(db);
       storage.setItem(SESSION_KEY, JSON.stringify({ role: 'student', id: s.id }));
       emit('SIGNED_IN');
-      return { created };
+      return { created, pinSet };
     },
 
     async teacherLogin(code: string) {
@@ -493,6 +521,20 @@ export function createDeviceApi(storage: Storage = localStorage, teacherCode = '
       return { ...s };
     },
 
+    async teacherStudentHasPin(id: string) {
+      if (!teacherSignedIn()) throw new ApiError('forbidden');
+      return !!load().pins?.[id]?.hash;
+    },
+
+    async teacherResetStudentPin(id: string) {
+      if (!teacherSignedIn()) throw new ApiError('forbidden');
+      const db = load();
+      if (!db.students.some((x) => x.id === id)) throw new ApiError('not_found');
+      db.pins ??= {};
+      db.pins[id] = { salt: uuid(), hash: null, resetAt: Date.now(), fails: [] };
+      save(db);
+    },
+
     async teacherDeleteStudent(id: string) {
       if (!teacherSignedIn()) throw new ApiError('forbidden');
       const db = load();
@@ -503,6 +545,7 @@ export function createDeviceApi(storage: Storage = localStorage, teacherCode = '
       db.points = db.points.filter((x) => x.student_id !== id);
       db.badges = db.badges.filter((x) => x.student_id !== id);
       db.notifications = db.notifications.filter((x) => x.user_id !== id);
+      if (db.pins) delete db.pins[id];
       save(db);
     },
   };

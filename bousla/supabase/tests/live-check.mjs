@@ -50,8 +50,9 @@ try {
   // 1. Student A registers on phone 1
   const a1 = await signInDevice('student A');
   ok(true, 'anonymous sign-in works');
-  const { data: reg, error: regErr } = await a1.rpc('student_login', { p_name: nameA, p_grade: 12, p_language: 'ar', p_timezone: 'Asia/Muscat' });
-  ok(!regErr && reg?.created === true, 'student registration (name + grade)', regErr?.message);
+  const pinA = String(100000 + Math.floor(Math.random() * 899999));
+  const { data: reg, error: regErr } = await a1.rpc('student_login', { p_name: nameA, p_grade: 12, p_pin: pinA, p_language: 'ar', p_timezone: 'Asia/Muscat' });
+  ok(!regErr && reg?.status === 'ok' && reg?.created === true, 'student registration (name + grade + PIN)', regErr?.message);
   ids.push(reg?.profile?.id);
 
   // 2. Tasks + points
@@ -85,8 +86,12 @@ try {
 
   // 4. Restore on a new phone
   const a2 = await signInDevice('student A, phone 2');
-  const { data: back } = await a2.rpc('student_login', { p_name: `  ${nameA.toLowerCase()} `, p_grade: 12 });
-  ok(back?.created === false, 'same name + grade on another phone opens the same account');
+  const { data: imp } = await a2.rpc('student_login', { p_name: nameA, p_grade: 12, p_pin: '000000' });
+  ok(imp?.status === 'wrong_pin', 'wrong PIN refused (no impersonation)');
+  const { data: impTasks } = await a2.from('study_tasks').select('id');
+  ok(!impTasks || impTasks.length === 0, 'refused device sees none of her data');
+  const { data: back } = await a2.rpc('student_login', { p_name: `  ${nameA.toLowerCase()} `, p_grade: 12, p_pin: pinA });
+  ok(back?.status === 'ok' && back?.created === false, 'right PIN on another phone opens the same account');
   const { data: stats } = await a2.rpc('get_student_stats');
   const { data: restored } = await a2.from('study_tasks').select('id, completed');
   ok(stats?.total_points >= 30 && restored?.length === 2 && restored.every((t) => t.completed), 'all progress restored after login', `points ${stats?.total_points}`);
@@ -95,7 +100,7 @@ try {
 
   // 5. Another student is isolated
   const b1 = await signInDevice('student B');
-  const { data: regB } = await b1.rpc('student_login', { p_name: nameB, p_grade: 12 });
+  const { data: regB } = await b1.rpc('student_login', { p_name: nameB, p_grade: 12, p_pin: '424242' });
   ids.push(regB?.profile?.id);
   const { data: seen } = await b1.from('study_tasks').select('id');
   const { data: seenProfiles } = await b1.from('student_profiles').select('id');
@@ -121,6 +126,10 @@ try {
     ok(rowA && Number(rowA.tasks_due_done) === 2 && rowA.total_points >= 30, 'teacher sees student progress and task completion');
     const edit = await t.rpc('teacher_update_student', { p_student: ids[1], p_name: `${nameB} edited`, p_grade: 12 });
     ok(!edit.error, 'teacher can correct a student name');
+    const { data: hasPin } = await t.rpc('teacher_student_has_pin', { p_student: ids[0] });
+    ok(hasPin === true, 'teacher sees the student has a PIN (never the PIN itself)');
+    const secrets = await t.from('student_secrets').select('*');
+    ok(!!secrets.error, 'PIN hashes are not readable, even by the teacher');
   }
 } catch (e) {
   if (e.message !== 'stop') { console.log('❌ unexpected error:', e.message); failed++; }

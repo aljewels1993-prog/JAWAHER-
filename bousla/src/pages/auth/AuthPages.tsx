@@ -43,6 +43,7 @@ export function LoginPage() {
   const [tab, setTab] = useState<'student' | 'teacher'>('student');
   const [name, setName] = useState('');
   const [grade, setGrade] = useState('');
+  const [pin, setPin] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -53,14 +54,17 @@ export function LoginPage() {
     const clean = name.trim().replace(/\s+/g, ' ');
     if (clean.length < 2) return setError(t('login.nameRequired'));
     if (!grade) return setError(t('login.gradeRequired'));
+    if (!/^[0-9]{4,6}$/.test(pin)) return setError(t('login.pinRequired'));
     setBusy(true);
     try {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Muscat';
-      const r = await api.studentLogin(clean, Number(grade), lang, timezone);
+      const r = await api.studentLogin(clean, Number(grade), pin, lang, timezone);
       await refresh();
       toast(t(r.created ? 'login.welcomeNew' : 'login.welcomeBack', { name: clean.split(' ')[0] }), 'success', r.created ? '🎉' : '👋');
+      if (r.pinSet) toast(t('login.pinSaved'), 'info', '🔐');
     } catch (err) {
       setError(errorText(t, err));
+      setPin('');
     } finally {
       setBusy(false);
     }
@@ -111,6 +115,13 @@ export function LoginPage() {
               <option value="">{t('login.chooseGrade')}</option>
               {GRADES.map((g) => <option key={g} value={g}>{t(`grade.${g}` as MessageKey)}</option>)}
             </select>
+          </div>
+          <div className="field">
+            <label htmlFor="pin">{t('login.pin')}</label>
+            <input id="pin" className="input" type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="current-password" dir="ltr"
+              maxLength={6} style={{ letterSpacing: 8, textAlign: 'center', fontSize: '1.3rem' }} aria-describedby="pin-hint"
+              value={pin} onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} />
+            <span id="pin-hint" className="hint">{t('login.pinHint')}</span>
           </div>
           <button className="btn block big" disabled={busy}>{busy ? t('common.loading') : `🚀 ${t('login.enter')}`}</button>
         </form>

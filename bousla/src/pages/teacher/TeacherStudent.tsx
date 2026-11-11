@@ -24,6 +24,8 @@ export default function TeacherStudent() {
   const [editing, setEditing] = useState<{ name: string; grade: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [resettingPin, setResettingPin] = useState(false);
+  const pin = useAsync(() => api.teacherStudentHasPin(id), [id]);
   const base = useAsync(() => Promise.all([api.getStudentProfile(id), api.getStats(id), api.listAchievements(), api.listStudentAchievements(id)]), [id]);
   const week = useAsync(() => Promise.all([api.getWeeklyReport(start, id), api.listTasks(start, addDays(start, 6), id)]), [id, start]);
 
@@ -42,6 +44,20 @@ export default function TeacherStudent() {
       toast(t('teacher.saved'), 'success');
       setEditing(null);
       await base.reload();
+    } catch (err) {
+      toast(errorText(t, err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmPinReset = async () => {
+    setBusy(true);
+    try {
+      await api.teacherResetStudentPin(profile.id);
+      toast(t('teacher.pinResetDone'), 'success', '🔐');
+      setResettingPin(false);
+      await pin.reload();
     } catch (err) {
       toast(errorText(t, err), 'error');
     } finally {
@@ -99,8 +115,12 @@ export default function TeacherStudent() {
         <p style={{ color: 'var(--ink-2)', fontWeight: 600, fontSize: '0.9rem', marginBottom: 12 }}>{t('teacher.manageHint')}</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button className="btn secondary" onClick={() => setEditing({ name: profile.full_name, grade: String(profile.grade) })}>✏️ {t('teacher.editStudent')}</button>
+          <button className="btn secondary" onClick={() => setResettingPin(true)}>🔐 {t('teacher.resetPin')}</button>
           <button className="btn danger" onClick={() => setDeleting(true)}>🗑️ {t('teacher.deleteStudent')}</button>
         </div>
+        <p style={{ marginTop: 10, fontWeight: 700, fontSize: '0.9rem', color: 'var(--ink-2)' }}>
+          🔐 {t('teacher.pinStatus')}: {pin.data === undefined ? '…' : pin.data ? t('teacher.pinSet') : t('teacher.pinNotSet')}
+        </p>
       </section>
 
       {editing && (
@@ -121,6 +141,15 @@ export default function TeacherStudent() {
               <button className="btn" disabled={busy}>{busy ? t('common.saving') : t('common.save')}</button>
             </div>
           </form>
+        </Modal>
+      )}
+      {resettingPin && (
+        <Modal title={t('teacher.resetPin')} onClose={() => setResettingPin(false)}>
+          <p style={{ fontWeight: 700, color: 'var(--ink-2)', marginBottom: 12 }}>{t('teacher.resetPinConfirm', { name: profile.full_name })}</p>
+          <div className="actions">
+            <button className="btn ghost" onClick={() => setResettingPin(false)}>{t('common.cancel')}</button>
+            <button className="btn" disabled={busy} onClick={() => void confirmPinReset()}>🔐 {t('teacher.resetPin')}</button>
+          </div>
         </Modal>
       )}
       {deleting && (

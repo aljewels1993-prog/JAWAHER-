@@ -3,13 +3,14 @@
 
 with expected_tables(name) as (values
   ('student_profiles'), ('student_devices'), ('teacher_profiles'), ('app_settings'), ('teacher_login_attempts'),
-  ('study_tasks'), ('study_sessions'), ('points_transactions'), ('achievements'), ('student_achievements'), ('notifications')
+  ('study_tasks'), ('study_sessions'), ('points_transactions'), ('achievements'), ('student_achievements'), ('notifications'),
+  ('student_secrets'), ('student_login_attempts')
 ),
 expected_functions(name) as (values
   ('student_login'), ('teacher_login'), ('set_teacher_code'), ('current_student_id'), ('is_teacher'),
   ('start_study_session'), ('complete_study_session'), ('cancel_study_session'), ('set_task_completed'),
   ('ensure_daily_reminder'), ('get_student_stats'), ('get_weekly_report'), ('teacher_list_students'),
-  ('teacher_update_student'), ('teacher_delete_student')
+  ('teacher_update_student'), ('teacher_delete_student'), ('teacher_reset_student_pin'), ('teacher_student_has_pin')
 )
 select 'table ' || e.name as item,
        case when c.oid is null then '❌ missing'
@@ -35,6 +36,10 @@ union all
 select 'students cannot write points',
        case when has_table_privilege('authenticated', 'public.points_transactions', 'INSERT') then '❌ INSERT is allowed'
             else '✅ read-only for the app' end
+union all
+select 'PIN hashes private',
+       case when has_table_privilege('authenticated', 'public.student_secrets', 'SELECT') then '❌ PIN hashes readable'
+            else '✅ not readable by the app' end
 union all
 select 'anon (signed-out) access',
        case when has_table_privilege('anon', 'public.student_profiles', 'SELECT') then '❌ anon can read profiles'

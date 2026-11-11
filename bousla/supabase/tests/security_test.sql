@@ -23,7 +23,7 @@ do $$ begin
   exception when insufficient_privilege then raise notice 'ok - anon cannot read profiles'; end;
 end $$;
 do $$ begin
-  begin perform public.student_login('Alia', 5); raise exception 'TEST FAILED: anon login';
+  begin perform public.student_login('Alia', 5, '1234'); raise exception 'TEST FAILED: anon login';
   exception when insufficient_privilege then raise notice 'ok - login needs a device session'; end;
 end $$;
 reset role;
@@ -34,11 +34,16 @@ set role authenticated;
 do $$
 declare r jsonb;
 begin
-  begin perform public.student_login('A', 5); raise exception 'TEST FAILED: 1-letter name';
+  begin perform public.student_login('A', 5, '1234'); raise exception 'TEST FAILED: 1-letter name';
   exception when invalid_parameter_value then raise notice 'ok - too-short name rejected'; end;
-  begin perform public.student_login('Alia Salim', 13); raise exception 'TEST FAILED: grade 13';
+  begin perform public.student_login('Alia Salim', 13, '1234'); raise exception 'TEST FAILED: grade 13';
   exception when invalid_parameter_value then raise notice 'ok - invalid grade rejected'; end;
-  r := public.student_login('  Alia   Salim ', 5, 'ar', 'Asia/Muscat');
+  begin perform public.student_login('Alia Salim', 5, '12'); raise exception 'TEST FAILED: 2-digit PIN';
+  exception when invalid_parameter_value then raise notice 'ok - PIN must be 4 to 6 digits'; end;
+  begin perform public.student_login('Alia Salim', 5, 'abcd'); raise exception 'TEST FAILED: letters PIN';
+  exception when invalid_parameter_value then raise notice 'ok - PIN must be digits'; end;
+  r := public.student_login('  Alia   Salim ', 5, '4821', 'ar', 'Asia/Muscat');
+  perform pg_temp.check(r->>'status' = 'ok' and (r->>'pin_set')::boolean, 'new student chooses her PIN at registration');
   perform pg_temp.check((r->>'created')::boolean, 'first login creates the student');
   perform pg_temp.check(r->'profile'->>'full_name' = 'Alia Salim', 'name is tidied');
   perform pg_temp.check(not (r->'profile' ? 'name_key'), 'internal key not returned');
@@ -173,10 +178,14 @@ set role authenticated;
 do $$
 declare r jsonb;
 begin
-  r := public.student_login('alia salim', 5);
-  perform pg_temp.check(not (r->>'created')::boolean, 'returning student is recognised (any letter case/spacing)');
+  r := public.student_login('alia salim', 5, '0000');
+  perform pg_temp.check(r->>'status' = 'wrong_pin', 'wrong PIN is refused (impersonation blocked)');
+  perform pg_temp.check(public.current_student_id() is null, 'refused device gets no access');
+  perform pg_temp.check((select count(*) from public.study_tasks) = 0, 'refused device sees no tasks');
+  r := public.student_login('alia salim', 5, '4821');
+  perform pg_temp.check(r->>'status' = 'ok' and not (r->>'created')::boolean, 'right PIN: returning student recognised (any letter case/spacing)');
   perform pg_temp.check((select count(*) from public.study_tasks) = 4, 'second device sees the same tasks');
-  r := public.student_login('Alia Salim', 6);
+  r := public.student_login('Alia Salim', 6, '5555');
   perform pg_temp.check((r->>'created')::boolean, 'same name in another grade is a different student');
   perform pg_temp.check((select count(*) from public.study_tasks) = 0, 'and does not see the first student''s tasks');
 end $$;
@@ -185,7 +194,7 @@ reset role;
 -- ─── student B: isolation ───────────────────────────────────────────────
 select set_config('request.jwt.claim.sub', :B, false);
 set role authenticated;
-select public.student_login('Badr Said', 5);
+select public.student_login('Badr Said', 5, '7373');
 select pg_temp.check((select count(*) from public.student_profiles) = 1, 'B sees only own profile');
 select pg_temp.check((select count(*) from public.study_tasks) = 0, 'B cannot see A tasks');
 select pg_temp.check((select count(*) from public.study_sessions) = 0, 'B cannot see A sessions');
@@ -294,7 +303,7 @@ select pg_temp.check(not exists (select 1 from public.student_devices d left joi
 -- Badr signs in with the corrected name on his device: same account.
 select set_config('request.jwt.claim.sub', :B, false);
 set role authenticated;
-select pg_temp.check(not (public.student_login('Badr Said Al-Harthy', 6)->>'created')::boolean, 'student signs in with the corrected name');
+select pg_temp.check(not (public.student_login('Badr Said Al-Harthy', 6, '7373')->>'created')::boolean, 'student signs in with the corrected name and her PIN');
 reset role;
 
 -- ─── change the teacher code with a hash made in the browser (bcryptjs) ──
@@ -320,4 +329,57 @@ set role authenticated;
 select pg_temp.check(not public.is_teacher(), 'changing the code signed the teacher out');
 select pg_temp.check(not public.teacher_login('2468'), 'previous code refused');
 select pg_temp.check(public.teacher_login('Teach-7781'), 'code hashed in the browser is accepted by the database');
+reset role;
+
+-- ─── student PINs: lock, privacy, teacher reset, pre-PIN accounts ──────────
+insert into auth.users (id) values ('eeeeeeee-0000-0000-0000-000000000006'), ('ffffffff-0000-0000-0000-000000000007');
+select set_config('request.jwt.claim.sub', 'eeeeeeee-0000-0000-0000-000000000006', false);
+set role authenticated;
+do $$
+declare r jsonb; i int;
+begin
+  for i in 1..5 loop
+    r := public.student_login('Badr Said Al-Harthy', 6, '1111');
+    perform pg_temp.check(r->>'status' = 'wrong_pin', 'guess ' || i || ' refused');
+  end loop;
+  begin perform public.student_login('Badr Said Al-Harthy', 6, '7373'); raise exception 'TEST FAILED: no lock';
+  exception when insufficient_privilege then raise notice 'ok - account locked after 5 wrong PINs (even the right PIN waits)'; end;
+  begin perform * from public.student_secrets; raise exception 'TEST FAILED: secrets readable';
+  exception when insufficient_privilege then raise notice 'ok - PIN hashes are not readable by students'; end;
+  begin perform * from public.student_login_attempts; raise exception 'TEST FAILED: attempts readable';
+  exception when insufficient_privilege then raise notice 'ok - sign-in logs are not readable'; end;
+  begin perform public.teacher_reset_student_pin(public.current_student_id()); raise exception 'TEST FAILED: student reset';
+  exception when insufficient_privilege then raise notice 'ok - a student cannot reset PINs'; end;
+end $$;
+reset role;
+
+-- Teacher resets Badr's forgotten PIN: account unlocked, devices signed out, progress kept.
+select set_config('request.jwt.claim.sub', 'cccccccc-0000-0000-0000-000000000004', false);
+set role authenticated;
+do $$
+declare v_badr uuid := (select id from public.teacher_list_students('badr', 6));
+begin
+  perform pg_temp.check(public.teacher_student_has_pin(v_badr), 'teacher sees that the student has a PIN');
+  begin perform * from public.student_secrets; raise exception 'TEST FAILED: teacher read secrets';
+  exception when insufficient_privilege then raise notice 'ok - PIN hashes are not readable by the teacher'; end;
+  perform public.teacher_reset_student_pin(v_badr);
+  perform pg_temp.check(not public.teacher_student_has_pin(v_badr), 'teacher reset the PIN');
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-0000-0000-0000-000000000003', false);
+set role authenticated;
+select pg_temp.check(public.current_student_id() is null, 'after a reset, the student''s devices are signed out');
+select pg_temp.check((public.student_login('Badr Said Al-Harthy', 6, '2468')->>'pin_set')::boolean, 'student chooses a new PIN after the reset (lock cleared)');
+select pg_temp.check((select count(*) from public.student_profiles) = 1, 'and gets her own account back');
+reset role;
+
+-- An account from before PINs (no secret row) gets its PIN at the next sign-in.
+insert into public.student_profiles (full_name, grade) values ('Old Account', 3);
+select set_config('request.jwt.claim.sub', 'ffffffff-0000-0000-0000-000000000007', false);
+set role authenticated;
+select pg_temp.check((public.student_login('Old Account', 3, '9090')->>'pin_set')::boolean, 'pre-PIN account sets its PIN on first sign-in');
+reset role;
+select set_config('request.jwt.claim.sub', 'eeeeeeee-0000-0000-0000-000000000006', false);
+set role authenticated;
+select pg_temp.check(public.student_login('Old Account', 3, '1234')->>'status' = 'wrong_pin', 'after that, another PIN is refused');
 reset role;

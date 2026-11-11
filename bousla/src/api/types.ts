@@ -184,8 +184,9 @@ export interface Api {
   getAccount(): Promise<Account | null>;
   /** Calls back on sign-in/out. Returns an unsubscribe function. */
   onAuthChange(cb: (event: string) => void): () => void;
-  /** Student sign-in with name + grade; creates the student the first time. */
-  studentLogin(name: string, grade: number, language: Lang, timezone: string): Promise<{ created: boolean }>;
+  /** Student sign-in with name + grade + PIN; creates the student (and her PIN) the first time.
+      `pinSet` is true when this sign-in chose the PIN (new account, older account or after a reset). */
+  studentLogin(name: string, grade: number, pin: string, language: Lang, timezone: string): Promise<{ created: boolean; pinSet: boolean }>;
   /** Teacher sign-in with the shared teacher code. */
   teacherLogin(code: string): Promise<void>;
   signOut(): Promise<void>;
@@ -221,6 +222,10 @@ export interface Api {
   teacherUpdateStudent(id: string, name: string, grade: number): Promise<StudentProfile>;
   /** Teacher only: delete a student and all of their data. */
   teacherDeleteStudent(id: string): Promise<void>;
+  /** Teacher only: has the student chosen a PIN? */
+  teacherStudentHasPin(id: string): Promise<boolean>;
+  /** Teacher only: clear a forgotten PIN (the student picks a new one) and sign her devices out. */
+  teacherResetStudentPin(id: string): Promise<void>;
 }
 
 /** Error with a translatable code (see i18n "error.*"). */

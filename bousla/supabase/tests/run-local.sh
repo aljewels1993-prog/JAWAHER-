@@ -47,4 +47,39 @@ assert all('name_key' not in s for s in d['students']) and 'teacher_code_hash' n
 print(f"  ok - backup has {students} students, {tasks} tasks, {points} point entries; no security data")
 PY
 [ "$BEFORE" = "$AFTER" ] && echo "  ok - database unchanged by the backup query ($BEFORE)"
+echo "▶ upgrade from the pre-PIN database keeps all student data"
+$RUNAS "${PSQL[@]}" -c "create database upgrade_test" >/dev/null
+UPSQL=(psql -h "$WORK" -p "$PORT" -U postgres -d upgrade_test -v ON_ERROR_STOP=1 -q -X)
+cat "$HERE/stub_supabase.sql" | $RUNAS "${UPSQL[@]}"
+cat "$HERE/../migrations/20261110000000_bousla_schema.sql" "$HERE/../migrations/20261111000000_teacher_manage_students.sql" | $RUNAS "${UPSQL[@]}"
+cat <<'LEGACY' | $RUNAS "${UPSQL[@]}" >/dev/null
+insert into auth.users (id) values ('aaaaaaaa-1111-0000-0000-000000000001'), ('aaaaaaaa-1111-0000-0000-000000000002');
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-1111-0000-0000-000000000001', false);
+set role authenticated;
+select public.student_login('Maryam Old', 7);
+insert into public.study_tasks (subject, title, task_date) values ('Science', 'Old task', (now() at time zone 'Asia/Muscat')::date);
+select public.set_task_completed((select id from public.study_tasks limit 1), true);
+reset role;
+LEGACY
+BEFORE_UP=$($RUNAS "${UPSQL[@]}" -t -A -c "select (select count(*) from public.student_profiles)||'/'||(select count(*) from public.study_tasks)||'/'||(select sum(points) from public.points_transactions)")
+cat "$HERE/../setup/upgrade_student_pins.sql" | $RUNAS "${UPSQL[@]}" -o /dev/null
+AFTER_UP=$($RUNAS "${UPSQL[@]}" -t -A -c "select (select count(*) from public.student_profiles)||'/'||(select count(*) from public.study_tasks)||'/'||(select sum(points) from public.points_transactions)")
+[ "$BEFORE_UP" = "$AFTER_UP" ] && echo "  ok - students/tasks/points identical after upgrade ($AFTER_UP)" || { echo "✖ data changed by upgrade: $BEFORE_UP → $AFTER_UP"; exit 1; }
+{ cat "$HERE/upgrade_test.sql"; cat <<'CHECKS'
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-1111-0000-0000-000000000001', false);
+set role authenticated;
+select pg_temp.check(public.current_student_id() is null, 'old device must sign in again with a PIN');
+select pg_temp.check((select count(*) from public.study_tasks) = 0, 'and sees nothing until then');
+select pg_temp.check((public.student_login('Maryam Old', 7, '3141')->>'pin_set')::boolean, 'existing student chooses her PIN at next sign-in');
+select pg_temp.check((select count(*) from public.study_tasks where completed) = 1, 'her completed task is still there');
+select pg_temp.check((public.get_student_stats()->>'total_points')::int = 5, 'her points are still there');
+reset role;
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-1111-0000-0000-000000000002', false);
+set role authenticated;
+select pg_temp.check(public.student_login('Maryam Old', 7, '0000')->>'status' = 'wrong_pin', 'someone else typing her name + grade is refused');
+reset role;
+CHECKS
+} | $RUNAS "${UPSQL[@]}" -o /dev/null 2>&1 | sed "s/^NOTICE:  /  /"
+if cat "$HERE/../setup/upgrade_student_pins.sql" | $RUNAS "${UPSQL[@]}" >/dev/null 2>&1; then echo "✖ upgrade ran twice"; exit 1; fi
+echo "  ok - running the upgrade a second time is refused"
 echo "✔ all database tests passed"

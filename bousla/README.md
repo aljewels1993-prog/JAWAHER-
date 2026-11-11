@@ -10,7 +10,7 @@ students, with a separate teacher dashboard. React + TypeScript + Vite, Supabase
 
 | Area | What it does |
 |---|---|
-| Sign-in | **Students:** full name + grade only (no e-mail, no password). **Teacher:** a shared teacher code set by the owner. |
+| Sign-in | **Students:** full name + grade + a secret PIN (4–6 digits, stored as a bcrypt hash; 5 wrong PINs lock the account for 15 minutes). **Teacher:** a shared teacher code set by the owner; the teacher can reset a forgotten PIN. |
 | Home | Greeting, date, points, tasks done, study time, level, daily progress ring, today's schedule, upcoming tasks, message of the day, Bousla the mascot with reactions |
 | Planner | Sunday–Thursday week view, day view, upcoming list; subjects (7 defaults + custom), type, date, start time, duration, priority, reminder; edit / delete / complete |
 | Timer | 25 / 30 / 45 / custom (10–120 min); start / pause / resume / reset; circular progress; break offer; sound + notification; keeps time across pages, sleeping tabs and refreshes |
@@ -83,10 +83,10 @@ saved in Supabase: students, points, badges, tasks, sessions and notifications.
   checked on the server against a bcrypt hash. After 5 wrong codes, that device
   is blocked for 15 minutes, and the whole school is blocked after 30 wrong codes.
 
-> **Trade-off of the simple sign-in:** there is no password, so anyone who types a
-> student's exact name and grade opens that student's plan. Ask students to use
-> their full name (first, father's and family name). For more protection, a 4-digit
-> student PIN can be added later.
+> **Student PINs:** each student chooses a 4–6 digit PIN the first time she signs in
+> (students who registered before PINs choose theirs at their next sign-in). Typing
+> someone's name and grade without her PIN opens nothing. Databases installed before
+> PINs run `supabase/setup/upgrade_student_pins.sql` once; it keeps all data.
 
 ## 3. Security model
 

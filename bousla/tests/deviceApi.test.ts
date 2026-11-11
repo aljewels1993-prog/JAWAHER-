@@ -16,7 +16,7 @@ const task = (over: Partial<TaskInput> = {}): TaskInput => ({
   start_time: null, duration_minutes: 30, priority: 'medium', reminder_minutes: null, ...over,
 });
 
-const login = (api: ReturnType<typeof createDeviceApi>, name = 'Alia Salim', grade = 5) => api.studentLogin(name, grade, 'en', 'Asia/Muscat');
+const login = (api: ReturnType<typeof createDeviceApi>, name = 'Alia Salim', grade = 5, pin = '4821') => api.studentLogin(name, grade, pin, 'en', 'Asia/Muscat');
 
 describe('device backend rewards', () => {
   beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(2026, 10, 10, 15, 0)); });
@@ -24,18 +24,42 @@ describe('device backend rewards', () => {
 
   it('signs students in with name + grade and finds them again', async () => {
     const api = createDeviceApi(memoryStorage());
-    await expect(api.studentLogin('A', 5, 'ar', 'Asia/Muscat')).rejects.toMatchObject({ code: 'invalid_name' });
-    await expect(api.studentLogin('Alia', 13, 'ar', 'Asia/Muscat')).rejects.toMatchObject({ code: 'invalid_grade' });
-    expect(await login(api)).toEqual({ created: true });
+    await expect(api.studentLogin('A', 5, '4821', 'ar', 'Asia/Muscat')).rejects.toMatchObject({ code: 'invalid_name' });
+    await expect(api.studentLogin('Alia', 13, '4821', 'ar', 'Asia/Muscat')).rejects.toMatchObject({ code: 'invalid_grade' });
+    expect(await login(api)).toEqual({ created: true, pinSet: true });
     await api.createTask(task());
     await api.signOut();
     expect(await api.getAccount()).toBeNull();
-    expect(await login(api, '  alia   SALIM ')).toEqual({ created: false });
+    expect(await login(api, '  alia   SALIM ')).toEqual({ created: false, pinSet: false });
     expect(await api.listTasks('2000-01-01', '2100-01-01')).toHaveLength(1);
     expect((await api.getAccount())?.student).toMatchObject({ full_name: 'Alia Salim', grade: 5 });
     await api.signOut();
-    expect(await login(api, 'Alia Salim', 6)).toEqual({ created: true });
+    expect(await login(api, 'Alia Salim', 6)).toEqual({ created: true, pinSet: true });
     expect(await api.listTasks('2000-01-01', '2100-01-01')).toHaveLength(0);
+  });
+
+  it('protects each student with her own PIN', async () => {
+    const api = createDeviceApi(memoryStorage(), 'Test-Code-1357');
+    await expect(login(api, 'Alia Salim', 5, '12')).rejects.toMatchObject({ code: 'invalid_pin' });
+    await login(api);
+    await api.createTask(task());
+    await api.signOut();
+    // A classmate typing the same name + grade with another PIN gets nothing.
+    await expect(login(api, 'Alia Salim', 5, '0000')).rejects.toMatchObject({ code: 'wrong_pin' });
+    expect(await api.getAccount()).toBeNull();
+    for (let i = 0; i < 4; i++) await login(api, 'Alia Salim', 5, '1111').catch(() => {});
+    await expect(login(api)).rejects.toMatchObject({ code: 'pin_locked' });
+    // Teacher resets the forgotten PIN: unlocked, new PIN chosen, data kept.
+    await api.teacherLogin('Test-Code-1357');
+    const [row] = await api.listStudents('alia');
+    expect(await api.teacherStudentHasPin(row.id)).toBe(true);
+    await api.teacherResetStudentPin(row.id);
+    expect(await api.teacherStudentHasPin(row.id)).toBe(false);
+    await api.signOut();
+    expect(await login(api, 'Alia Salim', 5, '2468')).toEqual({ created: false, pinSet: true });
+    expect(await api.listTasks('2000-01-01', '2100-01-01')).toHaveLength(1);
+    await api.signOut();
+    await expect(api.teacherResetStudentPin(row.id)).rejects.toMatchObject({ code: 'forbidden' });
   });
 
   it('has no teacher sign-in unless a preview code is configured', async () => {
