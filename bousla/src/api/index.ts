@@ -32,5 +32,5 @@ function safeStorage(): Storage {
   }
 }
 
-export const api: Api = cloudConfigured ? createSupabaseApi(url!, key!) : createDeviceApi(safeStorage(), (import.meta.env.VITE_TEACHER_CODE as string | undefined) || '1993');
+export const api: Api = cloudConfigured ? createSupabaseApi(url!, key!) : createDeviceApi(safeStorage(), (import.meta.env.VITE_TEACHER_CODE as string | undefined) ?? '');
 

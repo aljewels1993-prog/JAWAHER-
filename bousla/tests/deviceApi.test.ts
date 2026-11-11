@@ -38,6 +38,12 @@ describe('device backend rewards', () => {
     expect(await api.listTasks('2000-01-01', '2100-01-01')).toHaveLength(0);
   });
 
+  it('has no teacher sign-in unless a preview code is configured', async () => {
+    const api = createDeviceApi(memoryStorage());
+    await expect(api.teacherLogin('1993')).rejects.toMatchObject({ code: 'invalid_code' });
+    await expect(api.teacherLogin('')).rejects.toMatchObject({ code: 'invalid_code' });
+  });
+
   it('checks the teacher code and blocks guessing', async () => {
     const api = createDeviceApi(memoryStorage(), '1993');
     await expect(api.teacherLogin('0000')).rejects.toMatchObject({ code: 'invalid_code' });

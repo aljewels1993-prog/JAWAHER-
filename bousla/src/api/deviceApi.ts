@@ -42,7 +42,8 @@ const uuid = () => (typeof globalThis.crypto?.randomUUID === "function" ? crypto
 const nowIso = () => new Date().toISOString();
 const localDay = (ts: string) => isoDate(new Date(ts));
 
-export function createDeviceApi(storage: Storage = localStorage, teacherCode = '1993'): Api {
+/** `teacherCode` is for device-only previews; empty = teacher sign-in disabled. The real site checks the code in Supabase. */
+export function createDeviceApi(storage: Storage = localStorage, teacherCode = ''): Api {
   const listeners = new Set<(e: string) => void>();
   const emit = (e: string) => listeners.forEach((l) => l(e));
 
@@ -165,7 +166,7 @@ export function createDeviceApi(storage: Storage = localStorage, teacherCode = '
       let fails: number[] = [];
       try { fails = (JSON.parse(storage.getItem(ATTEMPTS_KEY) || '[]') as number[]).filter((x) => x > since); } catch { /* ignore */ }
       if (fails.length >= 5) throw new ApiError('too_many_attempts');
-      if (code.trim() !== teacherCode) {
+      if (!teacherCode || code.trim() !== teacherCode) {
         storage.setItem(ATTEMPTS_KEY, JSON.stringify([...fails, Date.now()]));
         throw new ApiError('invalid_code');
       }
