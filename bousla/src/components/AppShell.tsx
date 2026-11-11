@@ -74,6 +74,24 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => { window.scrollTo(0, 0); }, [loc.pathname]);
 
+  // Hosts that add a fixed badge at the bottom (e.g. Netlify's free plan) would cover
+  // the bottom navigation. Lift our bar above it instead of hiding it.
+  useEffect(() => {
+    const root = document.documentElement;
+    const update = () => {
+      const badge = document.getElementById('nl-badge-frame');
+      const r = badge?.getBoundingClientRect();
+      const lift = r && r.height > 0 && r.bottom >= window.innerHeight - 4 ? Math.ceil(window.innerHeight - r.top) + 6 : 0;
+      root.style.setProperty('--host-badge', `${lift}px`);
+    };
+    update();
+    const mo = new MutationObserver(update);
+    mo.observe(document.body, { childList: true });
+    window.addEventListener('resize', update);
+    const late = window.setTimeout(update, 3000);
+    return () => { mo.disconnect(); window.removeEventListener('resize', update); window.clearTimeout(late); };
+  }, []);
+
   return (
     <div className="shell">
       <aside className="sidebar" aria-label={t('nav.main')}>

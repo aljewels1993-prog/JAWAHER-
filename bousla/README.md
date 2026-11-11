@@ -125,6 +125,15 @@ npm run build
 
 ## 5. Deploy
 
+**Live site:** <https://bousla-study-planner.netlify.app> (Netlify project
+`bousla-study-planner`, separate from the Oman English Quest site).
+It was deployed as a direct upload of `dist/`. To update it, build with the two
+`VITE_SUPABASE_*` values set and upload `dist/` again (Netlify → Deploys → drag and
+drop), or connect the project to this repository as below.
+`public/_redirects` and `public/_headers` carry the routing and caching rules for
+direct uploads. On Netlify's free plan, a "Powered by Netlify" badge is shown; the
+app lifts its bottom bar above it so nothing is covered.
+
 **Netlify:** create a new site from this repository, then set **Base directory =
 `bousla`** (this folder's `netlify.toml` then applies: build `npm run build`, publish
 `dist`, single-page-app redirects). Add `VITE_SUPABASE_PUBLISHABLE_KEY` under

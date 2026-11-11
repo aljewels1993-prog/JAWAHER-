@@ -99,7 +99,7 @@ p { margin: 0; }
   border-inline-end: 1px solid var(--line);
   flex-direction: column; gap: 6px;
 }
-.main { flex: 1; min-width: 0; padding-bottom: calc(var(--nav-h) + var(--safe-b) + 24px); }
+.main { flex: 1; min-width: 0; padding-bottom: calc(var(--nav-h) + var(--safe-b) + var(--host-badge, 0px) + 24px); }
 .page { max-width: 1120px; margin: 0 auto; padding: 12px 16px 24px; animation: page-in 0.35s ease both; }
 @keyframes page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
@@ -145,7 +145,7 @@ p { margin: 0; }
 .nav-link .count { margin-inline-start: auto; background: var(--pink-deep); color: #fff; border-radius: 99px; font-size: 0.72rem; padding: 0 8px; }
 
 .bottom-nav {
-  position: fixed; inset-inline: 0; bottom: 0; z-index: 40;
+  position: fixed; inset-inline: 0; bottom: var(--host-badge, 0px); z-index: 40;
   display: grid; grid-template-columns: repeat(5, 1fr);
   height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b);
   background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(14px);
@@ -369,7 +369,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 @keyframes pop { from { opacity: 0; transform: scale(0.85); } }
 
 .companion {
-  position: fixed; z-index: 70; inset-inline-end: 14px; bottom: calc(var(--nav-h) + var(--safe-b) + 12px);
+  position: fixed; z-index: 70; inset-inline-end: 14px; bottom: calc(var(--nav-h) + var(--safe-b) + var(--host-badge, 0px) + 12px);
   display: flex; align-items: flex-end; gap: 6px; max-width: min(360px, calc(100vw - 28px));
   animation: pop 0.4s cubic-bezier(.2,1.4,.4,1) both;
 }
