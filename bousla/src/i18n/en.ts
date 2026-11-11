@@ -17,6 +17,7 @@ export const en = {
   'nav.teacher': 'Teacher Dashboard',
   'nav.students': 'Students',
   'nav.signOut': 'Sign out',
+  'nav.signOutShort': 'Sign out',
   'nav.main': 'Main navigation',
 
   'common.save': 'Save',

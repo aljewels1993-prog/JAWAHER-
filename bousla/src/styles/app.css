@@ -540,6 +540,11 @@ table.data tr:hover td { background: var(--purple-soft); }
 .video-frame { position: relative; border-radius: var(--r-md); overflow: hidden; background: var(--navy); aspect-ratio: 16 / 9; max-width: 100%; box-shadow: var(--shadow); }
 .video-frame video { width: 100%; height: 100%; display: block; object-fit: contain; background: var(--navy); }
 
+/* sign-out in the top bar: always visible, so anyone can get back to the sign-in screen */
+.icon-btn.signout-btn { width: auto; padding: 0 12px; gap: 6px; display: inline-flex; align-items: center; font-size: 1.05rem; color: var(--pink-deep); }
+.signout-label { font-size: 0.85rem; font-weight: 800; }
+@media (max-width: 380px) { .signout-label { display: none; } .icon-btn.signout-btn { width: 44px; padding: 0; justify-content: center; } }
+
 /* ─── copyright footer ───────────────────────────────────────────── */
 .app-footer { text-align: center; font-size: 0.72rem; font-weight: 600; color: var(--muted); padding: 18px 16px 8px; line-height: 1.6; }
 .app-footer b { font-weight: 800; color: var(--ink-2); }

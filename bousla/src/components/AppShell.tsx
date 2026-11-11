@@ -109,6 +109,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           )}
           <Link to="/profile" className="icon-btn" aria-label={t('nav.profile')}>👤</Link>
+          <button className="icon-btn signout-btn" onClick={() => void signOut()} aria-label={t('nav.signOut')} title={t('nav.signOut')}>
+            🚪<span className="signout-label">{t('nav.signOutShort')}</span>
+          </button>
         </header>
         {children}
         <Footer />

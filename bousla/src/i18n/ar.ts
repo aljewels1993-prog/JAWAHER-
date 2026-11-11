@@ -19,6 +19,7 @@ export const ar: Dict = {
   'nav.teacher': 'لوحة المعلمة',
   'nav.students': 'الطالبات',
   'nav.signOut': 'تسجيل الخروج',
+  'nav.signOutShort': 'خروج',
   'nav.main': 'التنقل الرئيسي',
 
   'common.save': 'حفظ',
