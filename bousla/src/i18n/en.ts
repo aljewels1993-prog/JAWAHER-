@@ -85,6 +85,11 @@ export const en = {
   'home.bonusDone': 'Daily bonus earned. Amazing day! 🎉',
   'home.timerRunning': 'Timer running',
 
+  'home.aboutTitle': 'What is the Bousla initiative?',
+  'home.aboutSub': 'Tap play to watch the short introduction to the initiative.',
+  'home.aboutVideo': 'Bousla initiative introduction video',
+  'home.videoUnsupported': 'Your browser cannot play this video.',
+
   'mascot.name': 'Bousla',
   'mascot.hello': 'Hi! I am Bousla, your study buddy. Let’s make today count!',
   'mascot.task': 'Task done! You are on a roll!',

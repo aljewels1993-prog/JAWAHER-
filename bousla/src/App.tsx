@@ -27,7 +27,7 @@ function Splash() {
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--grad-hero)' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 120, margin: '0 auto' }}><Mascot mood="idle" /></div>
-        <h1 style={{ color: 'var(--navy)', marginTop: 8 }}>{t('app.name')}</h1>
+        <h1 style={{ color: 'var(--gold)', marginTop: 8 }}>{t('app.name')}</h1>
         <Spinner />
       </div>
     </div>

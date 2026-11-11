@@ -1,6 +1,6 @@
 /* BOUSLA service worker — app-shell caching + offline fallback.
    Supabase/API requests are never cached: study data is always live. */
-const VERSION = 'bousla-v1';
+const VERSION = 'bousla-v2';
 const SHELL = ['/', '/index.html', '/offline.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -20,6 +20,7 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // Supabase, fonts CDN etc.: straight to network
+  if (url.pathname.startsWith('/media/')) return;  // video streams with range requests: let the browser handle them
 
   if (req.mode === 'navigate') {
     // Network first so students always get the newest version; cached shell when offline.

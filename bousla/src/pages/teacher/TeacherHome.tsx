@@ -164,7 +164,7 @@ export default function TeacherHome() {
                         <span className="avatar" aria-hidden="true">{initial(r.full_name)}</span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                           <b style={{ display: 'block' }}>{r.full_name} <small style={{ color: 'var(--muted)' }}>· {t(`grade.${r.grade}` as MessageKey)}</small></b>
-                          <small style={{ color: '#b4386a', fontWeight: 800 }}>{reasons.map((x) => t(x.key, { n: x.n ?? 0 })).join(' · ')}</small>
+                          <small style={{ color: '#a9522f', fontWeight: 800 }}>{reasons.map((x) => t(x.key, { n: x.n ?? 0 })).join(' · ')}</small>
                         </span>
                       </Link>
                     </li>

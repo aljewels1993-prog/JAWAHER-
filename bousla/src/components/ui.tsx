@@ -34,7 +34,7 @@ export function LoadError({ error, onRetry }: { error: unknown; onRetry: () => v
   );
 }
 
-export function ProgressRing({ value, size = 120, stroke = 12, color = 'url(#ringGrad)', track = '#efeaff', children, label }: {
+export function ProgressRing({ value, size = 120, stroke = 12, color = 'url(#ringGrad)', track = '#e9eff6', children, label }: {
   value: number; size?: number; stroke?: number; color?: string; track?: string; children?: ReactNode; label?: string;
 }) {
   const r = (size - stroke) / 2;
@@ -45,10 +45,10 @@ export function ProgressRing({ value, size = 120, stroke = 12, color = 'url(#rin
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <defs>
           <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#8f78e8" /><stop offset="100%" stopColor="#f07aa6" />
+            <stop offset="0%" stopColor="#2f527a" /><stop offset="100%" stopColor="#e9b44c" />
           </linearGradient>
           <linearGradient id="ringMint" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#7fdcb6" /><stop offset="100%" stopColor="#4c8fd9" />
+            <stop offset="0%" stopColor="#5fb8ab" /><stop offset="100%" stopColor="#2f6aa8" />
           </linearGradient>
         </defs>
         <circle cx={size / 2} cy={size / 2} r={r} stroke={track} strokeWidth={stroke} fill="none" />
@@ -105,7 +105,7 @@ export function Modal({ title, onClose, children, labelledBy }: { title?: string
   );
 }
 
-const COLORS = ['#b9a7f0', '#ffc7dc', '#a8e6cf', '#a9cdf5', '#ffd56b', '#f07aa6', '#8f78e8'];
+const COLORS = ['#e9b44c', '#1a3047', '#f3d9a4', '#2f6aa8', '#2a8a7d', '#c9673f', '#9db3cc'];
 export function Confetti() {
   return (
     <div className="confetti" aria-hidden="true">

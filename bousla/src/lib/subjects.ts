@@ -2,18 +2,18 @@
 export const DEFAULT_SUBJECTS = ['English', 'Mathematics', 'Science', 'Arabic', 'Islamic Education', 'Social Studies', 'Other'] as const;
 
 const COLORS: Record<string, string> = {
-  English: '#8f78e8',
-  Mathematics: '#4c8fd9',
-  Science: '#2fae7d',
-  Arabic: '#f07aa6',
-  'Islamic Education': '#e0a325',
-  'Social Studies': '#f0866a',
-  Other: '#9aa0b8',
+  English: '#2f6aa8',
+  Mathematics: '#e0a43a',
+  Science: '#2a8a7d',
+  Arabic: '#c9673f',
+  'Islamic Education': '#6b8f3e',
+  'Social Studies': '#5a6f8a',
+  Other: '#9aa3b0',
 };
 const ICONS: Record<string, string> = {
   English: '🔤', Mathematics: '➗', Science: '🔬', Arabic: '📜', 'Islamic Education': '🕌', 'Social Studies': '🌍', Other: '📌',
 };
-const EXTRA = ['#b07cd8', '#36b3c9', '#d9707f', '#7c9d3a', '#c98a3b', '#5e7ce2'];
+const EXTRA = ['#7a9cc0', '#d08a5a', '#4f8f9a', '#a7894a', '#6f7fa8', '#8fa56a'];
 
 export function subjectColor(subject: string): string {
   if (COLORS[subject]) return COLORS[subject];

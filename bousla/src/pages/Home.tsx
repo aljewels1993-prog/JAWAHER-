@@ -15,6 +15,9 @@ import { levelFor, REWARDS } from '../lib/rewards';
 import { messageOfTheDay, nextMessage } from '../lib/motivation';
 import { formatClock } from '../lib/timer';
 
+// Served from public/media. The framed preview page loads it from beside the page.
+const MEDIA = import.meta.env.VITE_ROUTER === 'memory' ? 'media/' : '/media/';
+
 export function HomePage() {
   const { t, lang } = useI18n();
   const student = useStudent();
@@ -60,6 +63,17 @@ export function HomePage() {
           <div><div className="bubble" key={tap?.text ?? 'hello'} aria-live="polite">{tap?.text ?? t('mascot.hello')}</div></div>
         </div>
         <Mascot mood={tap?.mood ?? 'idle'} onClick={boost} label={t('mascot.tap')} />
+      </section>
+
+      <section className="card about-card" aria-labelledby="about-h" style={{ marginTop: 16 }}>
+        <h2 id="about-h">🧭 {t('home.aboutTitle')}</h2>
+        <p className="about-sub">{t('home.aboutSub')}</p>
+        <div className="video-frame">
+          <video controls playsInline preload="none" poster={`${MEDIA}bousla-intro-poster.jpg`} aria-label={t('home.aboutVideo')}>
+            <source src={`${MEDIA}bousla-intro.mp4`} type="video/mp4" />
+            {t('home.videoUnsupported')}
+          </video>
+        </div>
       </section>
 
       <div className="stat-grid" style={{ marginTop: 16 }}>

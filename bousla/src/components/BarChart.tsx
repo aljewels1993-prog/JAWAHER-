@@ -29,7 +29,7 @@ export function BarChart({ data: input, title, unitLabel }: { data: BarDatum[]; 
       <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title}>
         {ticks.map((tk) => (
           <g key={tk}>
-            <line x1={pad.side} x2={W - pad.side} y1={y(tk)} y2={y(tk)} stroke="#ece7fa" strokeWidth={1} strokeDasharray={tk ? '4 4' : undefined} />
+            <line x1={pad.side} x2={W - pad.side} y1={y(tk)} y2={y(tk)} stroke="#e4e8ef" strokeWidth={1} strokeDasharray={tk ? '4 4' : undefined} />
           </g>
         ))}
         {data.map((d, i) => {
@@ -48,9 +48,9 @@ export function BarChart({ data: input, title, unitLabel }: { data: BarDatum[]; 
               <rect x={cx - slot / 2} y={pad.top} width={slot} height={plotH + 4} fill="transparent" tabIndex={0}
                 onMouseEnter={() => setActive(d.key)} onMouseLeave={() => setActive(null)}
                 onFocus={() => setActive(d.key)} onBlur={() => setActive(null)} aria-label={`${d.label}: ${d.valueLabel}`} />
-              {active === d.key && <rect x={cx - slot / 2 + 3} y={pad.top - 6} width={slot - 6} height={plotH + 10} rx={10} fill="#efeaff" pointerEvents="none" />}
-              {path && <path className="bar-rect" d={path} fill="#8f78e8" pointerEvents="none" />}
-              {h === 0 && <rect x={x0} y={y(0) - 2} width={barW} height={2} rx={1} fill="#d9d1f7" pointerEvents="none" />}
+              {active === d.key && <rect x={cx - slot / 2 + 3} y={pad.top - 6} width={slot - 6} height={plotH + 10} rx={10} fill="#e9eff6" pointerEvents="none" />}
+              {path && <path className="bar-rect" d={path} fill="#2f6aa8" pointerEvents="none" />}
+              {h === 0 && <rect x={x0} y={y(0) - 2} width={barW} height={2} rx={1} fill="#c9d4e2" pointerEvents="none" />}
               {showLabel && (
                 <text x={cx} y={top - 8} textAnchor="middle" fontSize={14} style={{ fill: 'var(--navy)' }} pointerEvents="none">{d.valueLabel}</text>
               )}
