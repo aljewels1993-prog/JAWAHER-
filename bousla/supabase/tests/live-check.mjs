@@ -40,8 +40,11 @@ try {
   }
   if (/fetch failed|network/.test(m)) { ok(false, 'reach the Supabase project', probeErr.message); throw new Error('stop'); }
   ok(true, 'publishable key accepted');
-  ok(!probeErr, 'database tables installed', probeErr ? 'Run bousla_full_setup.sql in the SQL Editor (' + probeErr.message + ')' : '');
-  if (probeErr) throw new Error('stop');
+  // Signed out, the tables must exist but refuse access ("permission denied" = installed and protected).
+  const missing = /does not exist|schema cache/.test(m);
+  ok(!missing, 'database tables installed', missing ? 'Run bousla_full_setup.sql in the SQL Editor' : '');
+  ok(!probeErr || /permission denied/.test(m), 'signed-out visitors are refused by the database', probeErr ? '' : 'achievements were readable without signing in');
+  if (missing) throw new Error('stop');
 
   // 1. Student A registers on phone 1
   const a1 = await signInDevice('student A');
@@ -102,8 +105,8 @@ try {
   ok(!!notTeacher.error, 'a student cannot open the teacher list');
 
   // 6. Signed-out visitors see nothing
-  const { data: anonRows } = await device().from('student_profiles').select('id');
-  ok(!anonRows || anonRows.length === 0, 'signed-out visitors see no student data');
+  const { data: anonRows, error: anonErr } = await device().from('student_profiles').select('id');
+  ok(!!anonErr || !anonRows || anonRows.length === 0, 'signed-out visitors see no student data');
 
   // 7. Teacher
   const t = await signInDevice('teacher');
