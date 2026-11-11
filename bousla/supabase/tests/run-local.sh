@@ -30,4 +30,21 @@ cat "$HERE/security_test.sql" | $RUNAS "${PSQL[@]}" -o /dev/null 2>&1 | sed "s/^
 echo "▶ change-code template refuses a malformed hash"
 if sed "s|HASH_HERE|not-a-hash|" "$HERE/../setup/change_teacher_code_template.sql" | $RUNAS "${PSQL[@]}" >/dev/null 2>&1; then echo "✖ malformed hash accepted"; exit 1; fi
 echo "  ok - malformed hash refused"
+echo "▶ backup_export.sql is read-only and complete"
+BACKUP_SQL="$HERE/../setup/backup_export.sql"
+if grep -qiE "\b(insert|update|delete|drop|truncate|alter|create|grant|revoke)\b" <(grep -v "^\s*--" "$BACKUP_SQL"); then echo "✖ backup query contains a write statement"; exit 1; fi
+BEFORE=$($RUNAS "${PSQL[@]}" -t -A -c "select (select count(*) from public.student_profiles)||'/'||(select count(*) from public.study_tasks)||'/'||(select count(*) from public.points_transactions)")
+( echo "begin transaction read only;"; cat "$BACKUP_SQL"; echo "commit;" ) | $RUNAS "${PSQL[@]}" -t -A > "$WORK/backup.json"
+AFTER=$($RUNAS "${PSQL[@]}" -t -A -c "select (select count(*) from public.student_profiles)||'/'||(select count(*) from public.study_tasks)||'/'||(select count(*) from public.points_transactions)")
+python3 - "$WORK/backup.json" "$BEFORE" <<'PY'
+import json, sys
+raw = [l for l in open(sys.argv[1]).read().splitlines() if l.strip().startswith('{')][0]
+d = json.loads(raw)
+students, tasks, points = map(int, sys.argv[2].split('/'))
+assert d['app'] == 'BOUSLA' and d['counts']['students'] == students == len(d['students'])
+assert d['counts']['tasks'] == tasks == len(d['tasks']) and d['counts']['points_transactions'] == points == len(d['points_transactions'])
+assert all('name_key' not in s for s in d['students']) and 'teacher_code_hash' not in raw
+print(f"  ok - backup has {students} students, {tasks} tasks, {points} point entries; no security data")
+PY
+[ "$BEFORE" = "$AFTER" ] && echo "  ok - database unchanged by the backup query ($BEFORE)"
 echo "✔ all database tests passed"
