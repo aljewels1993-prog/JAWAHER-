@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { loadImageTexture } from './textures.js';
 import rig from '../assets/hero-rig.json';
+import { TUNING } from '../data/tuning.js';
 
 import bodyUrl from '../assets/hero-body.png';
 import legLUrl from '../assets/hero-leg-l.png';
@@ -16,6 +17,7 @@ import legRUrl from '../assets/hero-leg-r.png';
  * changes direction, and a celebration spin.
  */
 export const HERO_HEIGHT = 2.2;
+const RUN_SPEED = TUNING.player.runSpeed;
 const S = HERO_HEIGHT / rig.height; // world units per source pixel
 const W = rig.width * S;
 const HIP = (rig.height - rig.hipY) * S; // leg pieces start here (from the feet)
@@ -42,95 +44,86 @@ export function HeroPuppet({ state }) {
   const legR = useRef();
   const aura = useRef();
   const shield = useRef();
-  const anim = useRef({ phase: 0, yaw: 0, squash: 1 });
+  const anim = useRef({ phase: 0, yaw: 0, look: 0, run: 0, air: 0, legL: 0, legR: 0, lean: 0, fade: 1 });
   const mats = useMemo(() => ({ body: partMaterial(bodyUrl), l: partMaterial(legLUrl), r: partMaterial(legRUrl) }), []);
 
-  useFrame(({ clock }, dt) => {
+  useFrame(({ clock }, rawDt) => {
     const s = state.current;
     if (!s || !root.current) return;
+    const dt = Math.min(rawDt, 0.05);
     const a = anim.current;
     const t = clock.elapsedTime;
+    // frame-rate independent smoothing toward a target
+    const ease = (cur, target, rate) => cur + (target - cur) * (1 - Math.exp(-rate * dt));
     const speed = Math.abs(s.vx || 0);
-    const running = s.onGround && speed > 0.4;
+    const speedFrac = Math.min(1, speed / RUN_SPEED);
+    const moving = s.onGround && speed > 0.15;
 
     // facing: smooth card-turn (rotate around Y; the back face shows her mirrored)
-    const targetYaw = s.facing < 0 ? Math.PI : 0;
-    a.yaw += (targetYaw - a.yaw) * Math.min(1, dt * 12);
-    turn.current.rotation.y = a.yaw;
+    a.yaw = ease(a.yaw, s.facing < 0 ? Math.PI : 0, 12);
+    // standing still for a while: she turns slightly toward the player and holds it
+    a.look = ease(a.look, (s.idleFor || 0) > 3 ? 0.22 : 0, 2);
+    turn.current.rotation.y = a.yaw + a.look;
     // keep the legs behind the robe whichever way she faces
     const back = Math.cos(a.yaw) < 0 ? -1 : 1;
     legL.current.position.z = -0.02 * back;
     legR.current.position.z = -0.025 * back;
 
-    // legs
-    let swing = 0; let tuckL = 0; let tuckR = 0;
-    if (running) { a.phase += dt * (6 + speed * 1.3); swing = Math.sin(a.phase) * Math.min(0.42, 0.12 + speed * 0.045); }
-    else if (!s.onGround) { tuckL = s.vy > 0 ? 0.3 : 0.1; tuckR = s.vy > 0 ? -0.16 : -0.06; }
-    else a.phase = 0;
-    legL.current.rotation.z = swing + tuckL;
-    legR.current.rotation.z = -swing + tuckR;
+    // ── legs: steps follow her real speed, at a natural child's cadence ──
+    a.run = ease(a.run, moving ? Math.max(0.3, speedFrac) : 0, 7);
+    if (moving) a.phase += dt * Math.PI * 2 * (0.8 + 0.7 * speedFrac); // ≤ 1.5 strides/s (3 steps/s)
+    const stride = Math.sin(a.phase) * 0.32 * a.run;
+    a.air = ease(a.air, s.onGround ? 0 : 1, 12);
+    // in the air: legs trail back while rising, reach forward to land
+    const airL = s.vy > 0.5 ? -0.1 : 0.1;
+    const airR = s.vy > 0.5 ? -0.18 : 0.04;
+    a.legL = ease(a.legL, stride * (1 - a.air) + airL * a.air, 16);
+    a.legR = ease(a.legR, -stride * (1 - a.air) + airR * a.air, 16);
 
-    // squash & stretch
-    const sinceLand = (s.t ?? t) - (s.landedAt ?? -10);
-    let sy = 1;
-    if (!s.onGround) sy = 1 + Math.min(0.04, Math.abs(s.vy) * 0.002);
-    else if (sinceLand < 0.15) sy = 0.95 + (sinceLand / 0.15) * 0.05;
-    else if (!running) sy = 1 + Math.sin(t * 2.4) * 0.006; // gentle breathing
-    a.squash += (sy - a.squash) * Math.min(1, dt * 20);
-    root.current.scale.set(1 + (1 - a.squash) * 0.6, a.squash, 1);
+    // ── body: one soft bob per step and a slight forward lean ──
+    const bob = ((1 - Math.cos(a.phase * 2)) / 2) * 0.022 * a.run * (1 - a.air);
+    let leanTarget = -0.035 * a.run * (1 - a.air) - 0.015 * a.air;
+    if (s.skid) leanTarget = 0.04; // leaning back as she brakes to turn
+    let lift = 0;
+    let spin = 0;
+    let legsExtra = 0;
+    let squashY = 1;
 
-    // body bob + lean while running
-    body.current.position.y = BODY_BOTTOM + (running ? Math.abs(Math.sin(a.phase)) * 0.03 : 0);
-    body.current.rotation.z = running ? -0.03 : (!s.onGround ? -0.02 : 0);
-
-    // celebration: hop and spin
+    // final celebration on Burj Al Sahwa: calm, smooth hops
     if (s.celebrate) {
-      const c = t * 2.2;
-      root.current.position.y = Math.abs(Math.sin(c * 2)) * 0.35;
-      turn.current.rotation.y = a.yaw + (Math.floor(c / Math.PI) % 2 ? Math.sin(c) * Math.PI : 0);
-      legL.current.rotation.z = 0.15 * Math.sin(c * 4);
-      legR.current.rotation.z = -0.15 * Math.sin(c * 4);
-    } else root.current.position.y = 0;
+      lift = 0.22 * (0.5 - 0.5 * Math.cos(t * 4));
+      spin = 0.35 * Math.sin(t * 1.2);
+    }
 
-    // short emotes (reactions to the student, to answers and to events)
+    // short reactions — each one smooth and single, no shaking
     const e = s.emote;
     const k = e ? (t - e.start) / (EMOTE_LENGTH[e.type] || 1) : 2;
     if (!s.celebrate && k >= 0 && k < 1) {
-      const fade = Math.sin(k * Math.PI);
-      if (e.type === 'cheer') {
-        root.current.position.y = Math.abs(Math.sin(k * Math.PI * 2)) * 0.28;
-        turn.current.rotation.y = a.yaw + k * Math.PI * 2;
-        legL.current.rotation.z = 0.15 * Math.sin(k * 20);
-        legR.current.rotation.z = -0.15 * Math.sin(k * 20);
-      } else if (e.type === 'hop') {
-        root.current.position.y = Math.sin(k * Math.PI) * 0.12;
-      } else if (e.type === 'spin') {
-        turn.current.rotation.y = a.yaw + k * Math.PI * 2;
-        root.current.position.y = fade * 0.15;
-      } else if (e.type === 'learn') {
-        body.current.rotation.z = Math.sin(k * Math.PI * 2) * 0.04 * fade; // thoughtful nod
-        root.current.scale.y *= 1 - 0.02 * fade;
-      } else if (e.type === 'wave') {
-        body.current.rotation.z = Math.sin(k * Math.PI * 4) * 0.06 * fade;
-        root.current.position.y = Math.abs(Math.sin(k * Math.PI * 2)) * 0.06;
-      } else if (e.type === 'sad') {
-        // droop: shrink a little, lean forward, slow sway — then recover
-        root.current.scale.y *= 1 - 0.04 * fade;
-        root.current.scale.x *= 1 + 0.015 * fade;
-        body.current.rotation.z = (0.05 + Math.sin(k * Math.PI * 2) * 0.02) * fade * -(s.facing || 1);
-        legL.current.rotation.z = 0.04 * fade; legR.current.rotation.z = -0.04 * fade;
-      } else if (e.type === 'ouch') {
-        body.current.rotation.z = 0.15 * fade * (s.facing || 1);
-      }
-    } else if (!s.celebrate) {
-      // skid lean when she turns around while running
-      if (s.skid) body.current.rotation.z = 0.06 * (s.facing || 1);
-      // standing still for a while: she turns a little to look at the player
-      if ((s.idleFor || 0) > 3) turn.current.rotation.y = a.yaw + Math.sin(t * 0.6) * 0.15 * Math.min(1, (s.idleFor - 3) / 1.5);
+      const arc = Math.sin(k * Math.PI); // 0 → 1 → 0
+      const turnK = k < 0.5 ? 2 * k * k : 1 - 2 * (1 - k) * (1 - k); // ease in-out
+      if (e.type === 'cheer') { lift = arc * 0.2; spin = turnK * Math.PI * 2; legsExtra = -0.06 * arc; }
+      else if (e.type === 'hop') lift = arc * 0.08;
+      else if (e.type === 'spin') { lift = arc * 0.08; spin = turnK * Math.PI * 2; }
+      else if (e.type === 'wave') lift = arc * 0.05;
+      else if (e.type === 'learn') leanTarget = -0.03 * arc; // a single thoughtful nod
+      else if (e.type === 'sad') { leanTarget = -0.06 * arc; squashY = 1 - 0.02 * arc; }
+      else if (e.type === 'ouch') leanTarget = 0.1 * arc;
     }
+    a.lean = ease(a.lean, leanTarget, 6);
 
-    // hurt blink
-    root.current.visible = !(s.invuln > 0 && Math.floor(t * 14) % 2 === 0);
+    root.current.position.y = lift;
+    root.current.scale.set(1, squashY, 1);
+    turn.current.rotation.y += spin;
+    body.current.position.y = BODY_BOTTOM + bob;
+    body.current.rotation.z = a.lean;
+    legL.current.rotation.z = a.legL + legsExtra;
+    legR.current.rotation.z = a.legR + legsExtra;
+
+    // hurt: a soft fade instead of fast blinking
+    a.fade = ease(a.fade, s.invuln > 0 ? 0.55 + 0.2 * Math.cos(t * 6) : 1, 10);
+    mats.body.opacity = a.fade; mats.l.opacity = a.fade; mats.r.opacity = a.fade;
+    root.current.visible = true;
+    if (typeof window !== 'undefined' && window.__oeq) window.__oeq.heroAnim = a; // for automated motion checks
 
     // power-ups
     if (aura.current) {
