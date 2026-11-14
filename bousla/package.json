@@ -1,0 +1,36 @@
+{
+  "name": "bousla",
+  "private": true,
+  "author": "Jawaher Alkhusaibi",
+  "license": "UNLICENSED",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "BOUSLA – بوصلة: student study planner and motivational learning companion.",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview --host",
+    "build:artifact": "vite build --mode artifact",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:db": "bash supabase/tests/run-local.sh",
+    "test:live": "node supabase/tests/live-check.mjs"
+  },
+  "dependencies": {
+    "@fontsource/baloo-bhaijaan-2": "5.1.0",
+    "@supabase/supabase-js": "2.117.3",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.28.0"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "4.3.4",
+    "jsdom": "25.0.1",
+    "typescript": "5.6.3",
+    "vite": "5.4.21",
+    "vite-plugin-singlefile": "2.0.3",
+    "vitest": "2.1.9"
+  }
+}

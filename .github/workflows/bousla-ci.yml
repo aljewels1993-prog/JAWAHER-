@@ -1,0 +1,33 @@
+# Checks BOUSLA on every change: types, unit tests, database security tests, build.
+name: BOUSLA – CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['bousla/**', '.github/workflows/bousla-ci.yml']
+  pull_request:
+    paths: ['bousla/**', '.github/workflows/bousla-ci.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bousla
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: bousla/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Database security tests (PostgreSQL preinstalled on the runner)
+        run: npm run test:db
+      - run: npm run build
